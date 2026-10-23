@@ -6,7 +6,7 @@
  *   https://script.google.com/macros/s/XXXXXXXX/exec
  */
 window.APP_CONFIG = {
-  webAppUrl: '',
-  orgName: 'Công đoàn',
-  guideUrl: ''
+  webAppUrl: 'https://script.google.com/macros/s/AKfycby0aFM4Jo8QbS2efw_7oocU8Jk_KqpqDL22f8AcJ5vuW_y8JJvROt_ZphMzsYodxtJsKA/exec',
+  orgName: 'Công đoàn Văn phòng Đăng ký đất đai',
+  guideUrl: 'https://github.com/nguyentranhoang47-gialai/quan-ly-doan-vien/blob/main/USER_GUIDE.md'
 };
