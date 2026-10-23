@@ -4,8 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Phần mềm quản lý đoàn viên công đoàn</title>
-  <meta name="description" content="Trang truy cập phần mềm quản lý đoàn viên công đoàn.">
-  <!-- Đường dẫn tương đối để chạy đúng dưới https://<tên>.github.io/<ten-repository>/ -->
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -21,42 +19,13 @@
 
   <main class="wrap">
     <section class="hero">
-      <h1>Quản lý hồ sơ đoàn viên, phê duyệt, chuyển sinh hoạt và đoàn phí</h1>
-      <p>Đăng nhập bằng email đã được quản trị cấp quyền. Hệ thống gửi mã 6 chữ số vào email — không cần mật khẩu.</p>
+      <h1>Phần mềm quản lý đoàn viên công đoàn</h1>
       <a id="open-app" class="btn-open" href="#" rel="noopener">Mở phần mềm quản lý đoàn viên</a>
       <p id="config-warning" class="warn" hidden>
-        Trang này chưa được cấu hình địa chỉ phần mềm. Người vận hành cần điền <code>webAppUrl</code> trong tệp
-        <code>docs/config.js</code> (xem DEPLOYMENT.md, bước 11).
+        Trang này chưa được cấu hình địa chỉ phần mềm. Người vận hành cần điền <code>webAppUrl</code> trong tệp <code>docs/config.js</code>.
       </p>
-      <p class="small">Phần mềm mở ở một trang riêng do Google Apps Script cung cấp (địa chỉ bắt đầu bằng
-        <code>https://script.google.com/</code>). Có thể lưu trang đó vào màn hình chính điện thoại để dùng nhanh.</p>
-    </section>
-
-    <section class="grid">
-      <div class="card"><h2>1. Đăng nhập</h2><p>Nhập email → nhận mã trong hộp thư → nhập mã. Mã có hiệu lực 5 phút, chỉ dùng một lần.</p></div>
-      <div class="card"><h2>2. Hồ sơ đoàn viên</h2><p>Thêm, sửa, lưu trữ hồ sơ. Mọi thay đổi chỉ có hiệu lực sau khi người phê duyệt đồng ý.</p></div>
-      <div class="card"><h2>3. Chuyển sinh hoạt</h2><p>Đơn vị đi lập yêu cầu, đơn vị đến xác nhận. Mã đoàn viên và lịch sử được giữ nguyên.</p></div>
-      <div class="card"><h2>4. Đoàn phí &amp; báo cáo</h2><p>Ghi nhận phải thu/đã thu theo tháng, thống kê và xuất tệp CSV mở bằng Excel.</p></div>
-    </section>
-
-    <section class="card">
-      <h2>Cần hỗ trợ?</h2>
-      <ul>
-        <li>Không nhận được mã: kiểm tra thư mục Spam, đợi 1–2 phút, hoặc bấm "Gửi lại mã".</li>
-        <li>Báo "chưa được cấp quyền" hoặc không thấy dữ liệu: liên hệ quản trị hệ thống của đơn vị.</li>
-        <li><a href="https://github.com/" id="guide-link">Hướng dẫn sử dụng (USER_GUIDE.md)</a></li>
-      </ul>
-    </section>
-
-    <section class="card arch">
-      <h2>Thông tin kỹ thuật (dành cho người vận hành)</h2>
-      <p><strong>Trang này</strong> chạy trên GitHub Pages, chỉ là trang truy cập: không chứa dữ liệu, không chứa bí mật, không gọi máy chủ.</p>
-      <p><strong>Phần mềm nghiệp vụ</strong> (giao diện + xử lý) chạy trên Google Apps Script Web App; dữ liệu nằm trong Google Sheets
-        riêng tư của chủ sở hữu. Toàn bộ mã nguồn được lưu trên GitHub.</p>
     </section>
   </main>
-
-  <footer class="wrap foot">Mã nguồn mở — triển khai trên Google Apps Script, Google Sheets và GitHub Pages.</footer>
 
   <script src="./config.js"></script>
   <script>
@@ -64,12 +33,10 @@
       var cfg = window.APP_CONFIG || {};
       var url = String(cfg.webAppUrl || '').trim();
       var link = document.getElementById('open-app');
-      // Chỉ chấp nhận địa chỉ Web App chính thức của Google Apps Script.
       var valid = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.\-]+|macros)\/s\/[A-Za-z0-9_\-]+\/exec$/.test(url);
       if (valid) { link.href = url; }
       else { link.classList.add('disabled'); link.setAttribute('aria-disabled', 'true'); link.removeAttribute('href'); document.getElementById('config-warning').hidden = false; }
       if (cfg.orgName) { document.getElementById('org-name').textContent = cfg.orgName; document.title = cfg.orgName + ' — Quản lý đoàn viên'; }
-      if (cfg.guideUrl && /^https:\/\//.test(cfg.guideUrl)) document.getElementById('guide-link').href = cfg.guideUrl;
     })();
   </script>
 </body>
