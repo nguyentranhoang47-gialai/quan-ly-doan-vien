@@ -1,0 +1,1251 @@
+<script>
+'use strict';
+/*
+ * App.html — Giao diện nghiệp vụ (JavaScript thuần), chạy trong Apps Script HTML Service.
+ * AN TOÀN HIỂN THỊ: mọi dữ liệu người dùng được đưa vào trang bằng textContent / createTextNode,
+ * KHÔNG dùng innerHTML với dữ liệu. Quyền hiển thị nút chỉ để tiện dùng — máy chủ luôn kiểm tra lại.
+ */
+
+/* ============================ TIỆN ÍCH DOM ============================ */
+function h(tag, props) {
+  const el = document.createElement(tag);
+  const kids = Array.prototype.slice.call(arguments, 2);
+  if (props) {
+    Object.keys(props).forEach(function (k) {
+      const v = props[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.indexOf('on') === 0 && typeof v === 'function') el.addEventListener(k.slice(2), v);
+      else if (k === 'value') el.value = v;
+      else if (k === 'checked' || k === 'disabled' || k === 'selected' || k === 'open') el[k] = !!v;
+      else el.setAttribute(k, v === true ? '' : String(v));
+    });
+  }
+  append(el, kids);
+  return el;
+}
+function append(el, kids) {
+  (Array.isArray(kids) ? kids : [kids]).forEach(function (c) {
+    if (Array.isArray(c)) return append(el, c);
+    if (c === null || c === undefined || c === false) return;
+    el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+  });
+  return el;
+}
+function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
+function $(id) { return document.getElementById(id); }
+
+/* ============================ ĐỊNH DẠNG ============================ */
+function fmtDate(s) { return s && /^\d{4}-\d{2}-\d{2}/.test(s) ? s.substring(8, 10) + '/' + s.substring(5, 7) + '/' + s.substring(0, 4) : (s || ''); }
+function fmtDT(s) { return s && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s) ? fmtDate(s) + ' ' + s.substring(11, 16) : (s || ''); }
+function money(n) { return (n === null || n === undefined || n === '') ? '' : Number(n).toLocaleString('vi-VN') + ' đ'; }
+function todayVN() {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const g = function (t) { return p.filter(function (x) { return x.type === t; })[0].value; };
+  return g('year') + '-' + g('month') + '-' + g('day');
+}
+function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim(); }
+const EVENT_LABELS = { JOIN: 'Vào công đoàn / thêm hồ sơ', TRANSFER_OUT: 'Chuyển đi', TRANSFER_IN: 'Chuyển đến', ARCHIVE: 'Lưu trữ hồ sơ', RESTORE: 'Khôi phục hồ sơ' };
+const ACTION_LABELS = { SUBMIT: 'Gửi duyệt', SAVE_DRAFT: 'Lưu nháp', APPROVE: 'Duyệt', SELF_APPROVE: 'Quản trị tự duyệt', RETURN: 'Trả lại', CANCEL: 'Hủy', CREATE: 'Lập yêu cầu', CONFIRM: 'Xác nhận', REJECT: 'Từ chối' };
+function statusTag(status, label) {
+  const cls = { APPROVED: 'ok', COMPLETED: 'ok', PENDING: 'warn', RETURNED: 'danger', REJECTED: 'danger', CANCELLED: '', DRAFT: 'info', ACTIVE: 'ok', SUSPENDED: 'warn', LEFT: '', RETIRED: 'info' }[status];
+  return h('span', { class: 'tag ' + (cls || ''), text: label || status });
+}
+
+/* ============================ TRẠNG THÁI & PHIÊN ============================ */
+const S = { token: null, me: null, view: 'dashboard', dash: null, memToken: null };
+const store = {
+  get: function () { try { return sessionStorage.getItem('qldv.session') || S.memToken; } catch (e) { return S.memToken; } },
+  set: function (v) { S.memToken = v; try { if (v) sessionStorage.setItem('qldv.session', v); else sessionStorage.removeItem('qldv.session'); } catch (e) { } }
+};
+function newRid() {
+  const b = new Uint8Array(12);
+  (window.crypto || window.msCrypto).getRandomValues(b);
+  return 'R' + Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+}
+function appErr(code, message, details) { const e = new Error(message); e.code = code; e.details = details || null; return e; }
+
+/** Gọi máy chủ qua google.script.run. requestId bắt buộc với thao tác ghi (chống xử lý lặp). */
+function call(action, payload, requestId) {
+  return new Promise(function (resolve, reject) {
+    if (!(window.google && google.script && google.script.run)) {
+      reject(appErr('INTERNAL', 'Không kết nối được máy chủ. Hãy mở phần mềm bằng đường dẫn Web App chính thức.'));
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (res && res.ok) return resolve(res.data);
+        const er = res && res.error ? res.error : { code: 'INTERNAL', message: 'Lỗi không xác định. Vui lòng thử lại.' };
+        const e = appErr(er.code, er.message, er.details);
+        if (e.code === 'AUTH' && S.token && action.indexOf('auth.') !== 0) { sessionExpired(e.message); }
+        reject(e);
+      })
+      .withFailureHandler(function () {
+        reject(appErr('NETWORK', 'Không nhận được phản hồi từ máy chủ (mạng yếu hoặc máy chủ chậm). Kiểm tra kết nối rồi bấm lại — thao tác sẽ không bị ghi trùng.'));
+      })
+      .api({ token: S.token, action: action, payload: payload || {}, requestId: requestId || '' });
+  });
+}
+
+/** Khóa nút trong khi xử lý (chống bấm gửi lặp), hiện vòng quay. */
+function busy(btn, fn) {
+  if (btn && btn.disabled) return Promise.resolve();
+  const old = btn ? Array.prototype.slice.call(btn.childNodes) : null;
+  if (btn) { btn.disabled = true; clear(btn); append(btn, [h('span', { class: 'spinner', 'aria-hidden': 'true' }), ' Đang xử lý…']); }
+  return Promise.resolve().then(fn).finally(function () { if (btn) { btn.disabled = false; clear(btn); append(btn, old); } });
+}
+
+function toast(msg, type) {
+  const el = h('div', { class: 'msg ' + (type || '') , text: msg });
+  $('toast').appendChild(el);
+  setTimeout(function () { el.remove(); }, type === 'error' ? 7000 : 4000);
+}
+function alertBox(type, msg) { return h('div', { class: 'alert ' + type, role: type === 'error' ? 'alert' : 'status', text: msg }); }
+function errorText(e) { return (e && e.message) || 'Có lỗi xảy ra. Vui lòng thử lại.'; }
+
+/* ============================ HỘP THOẠI ============================ */
+function openDialog(title, opts) {
+  opts = opts || {};
+  const body = h('div', { class: 'body' });
+  const footer = h('footer');
+  const msg = h('div');
+  const closeBtn = h('button', { class: 'close', 'aria-label': 'Đóng', text: '×' });
+  const dlg = h('div', { class: 'dialog' + (opts.wide ? ' wide' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+    h('header', null, h('h2', { text: title }), closeBtn), h('div', { class: 'msgbox' }, msg), body, footer);
+  const overlay = h('div', { class: 'overlay' }, dlg);
+  function close() { overlay.remove(); document.removeEventListener('keydown', onKey); if (opts.onClose) opts.onClose(); }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('mousedown', function (e) { if (e.target === overlay && !opts.modal) close(); });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+  setTimeout(function () { const f = dlg.querySelector('input,select,textarea,button.btn'); if (f) f.focus(); }, 30);
+  return {
+    body: body, footer: footer, close: close,
+    error: function (e) { clear(msg); if (e) { msg.appendChild(alertBox('error', errorText(e))); dlg.scrollIntoView({ block: 'start' }); } },
+    info: function (type, text) { clear(msg); if (text) msg.appendChild(alertBox(type, text)); }
+  };
+}
+function confirmDialog(title, text, okLabel, danger) {
+  return new Promise(function (resolve) {
+    let done = false;
+    const d = openDialog(title, { onClose: function () { if (!done) resolve(false); } });
+    d.body.appendChild(h('p', { text: text }));
+    d.footer.appendChild(h('button', { class: 'btn', text: 'Không', onclick: function () { d.close(); } }));
+    d.footer.appendChild(h('button', { class: 'btn ' + (danger ? 'danger' : 'primary'), text: okLabel || 'Đồng ý',
+      onclick: function () { done = true; d.close(); resolve(true); } }));
+  });
+}
+
+/* ============================ BIỂU MẪU ============================ */
+/** Ô ngày dạng dd/mm/yyyy (không dùng Date của trình duyệt để tránh lệch múi giờ). */
+function dateInput(id, value) {
+  const inp = h('input', { id: id, type: 'text', inputmode: 'numeric', placeholder: 'dd/mm/yyyy', maxlength: '10', autocomplete: 'off', value: fmtDate(value) });
+  inp.addEventListener('input', function (e) {
+    if (e.inputType && e.inputType.indexOf('delete') === 0) return;
+    let v = inp.value.replace(/[^\d]/g, '').substring(0, 8);
+    if (v.length >= 5) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4);
+    else if (v.length >= 3) v = v.substring(0, 2) + '/' + v.substring(2);
+    inp.value = v;
+  });
+  return inp;
+}
+let fieldSeq = 0;
+/**
+ * Tạo biểu mẫu từ định nghĩa. def: {name,label,type,options,required,hint,full,readonly}
+ * Trả về { el(name), get(), showErrors(details), clearErrors() }.
+ */
+function makeForm(defs, values) {
+  values = values || {};
+  const parts = {};
+  defs.forEach(function (d) {
+    const id = 'f' + (++fieldSeq) + '_' + d.name;
+    let input;
+    const v = values[d.name] === undefined || values[d.name] === null ? (d.default === undefined ? '' : d.default) : values[d.name];
+    if (d.type === 'select') {
+      input = h('select', { id: id, disabled: d.readonly });
+      (d.options || []).forEach(function (o) { input.appendChild(h('option', { value: o[0], text: o[1] })); });
+      input.value = v;
+    } else if (d.type === 'textarea') input = h('textarea', { id: id, maxlength: d.max || 1000, readonly: d.readonly, value: v });
+    else if (d.type === 'date') input = dateInput(id, v);
+    else if (d.type === 'checkbox') input = h('input', { id: id, type: 'checkbox', checked: v === true || v === 'true' });
+    else input = h('input', { id: id, type: d.type || 'text', inputmode: d.inputmode, maxlength: d.max || 200, readonly: d.readonly,
+      placeholder: d.placeholder, autocomplete: d.autocomplete || 'off', value: v });
+    const err = h('div', { class: 'err', id: id + '_err' });
+    input.setAttribute('aria-describedby', id + '_err');
+    const wrap = d.type === 'checkbox'
+      ? h('div', { class: 'field' }, h('label', { style: 'font-weight:600;display:flex;gap:8px;align-items:center' }, input, d.label), d.hint ? h('div', { class: 'hint', text: d.hint }) : null, err)
+      : h('div', { class: 'field' + (d.full ? ' full' : '') }, h('label', { for: id }, d.label, d.required ? h('span', { class: 'req', text: ' *' }) : null),
+        input, d.hint ? h('div', { class: 'hint', text: d.hint }) : null, err);
+    parts[d.name] = { def: d, input: input, wrap: wrap, err: err };
+  });
+  return {
+    el: function (name) { return parts[name] ? parts[name].wrap : null; },
+    get: function () {
+      const o = {};
+      Object.keys(parts).forEach(function (k) {
+        const p = parts[k];
+        o[k] = p.def.type === 'checkbox' ? p.input.checked : String(p.input.value || '').trim();
+      });
+      return o;
+    },
+    clearErrors: function () { Object.keys(parts).forEach(function (k) { parts[k].wrap.classList.remove('invalid'); parts[k].err.textContent = ''; }); },
+    showErrors: function (details) {
+      this.clearErrors();
+      let first = null;
+      Object.keys(details || {}).forEach(function (k) {
+        const p = parts[k] || (k === 'unit_code' ? parts.unit_id : null);
+        if (!p) return;
+        p.wrap.classList.add('invalid'); p.err.textContent = details[k];
+        if (!first) first = p.input;
+      });
+      if (first) first.focus();
+    }
+  };
+}
+function opts(obj) { return Object.keys(obj).map(function (k) { return [k, obj[k]]; }); }
+function unitOptions(filterFn, emptyLabel) {
+  const list = (S.me.units || []).filter(filterFn || function () { return true; }).map(function (u) { return [u.unit_id, u.path]; });
+  return emptyLabel ? [['', emptyLabel]].concat(list) : list;
+}
+
+/* ============================ TẢI TỆP ============================ */
+function downloadText(filename, text, type) {
+  const blob = new Blob([text], { type: type || 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = h('a', { href: url, download: filename, style: 'display:none' });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Phương án dự phòng nếu trình duyệt chặn tải tệp trong khung ứng dụng: mở tệp ở thẻ mới.
+  const msg = h('div', { class: 'msg' }, 'Đã tạo tệp ' + filename + '. ',
+    h('a', { href: url, target: '_blank', rel: 'noopener', download: filename, style: 'color:#fff;text-decoration:underline', text: 'Không thấy tệp? Bấm vào đây.' }));
+  $('toast').appendChild(msg);
+  setTimeout(function () { msg.remove(); }, 15000);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 120000);
+}
+
+/* CSV-PARSER-START */
+/** Đọc CSV theo RFC 4180: ngoặc kép, "" trong ô, xuống dòng trong ô, bỏ BOM; tự nhận dấu , hoặc ; */
+function parseCsv(text) {
+  text = String(text || '').replace(/^﻿/, '');
+  const firstLine = text.split(/\r?\n/)[0] || '';
+  const sep = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
+  const rows = []; let row = []; let cell = ''; let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === sep) { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+/* CSV-PARSER-END */
+
+const IMPORT_COLUMNS = [['member_code', 'Mã đoàn viên'], ['full_name', 'Họ và tên'], ['dob', 'Ngày sinh'], ['gender', 'Giới tính'],
+  ['id_type', 'Loại giấy tờ'], ['id_number', 'Số giấy tờ'], ['phone', 'Số điện thoại'], ['email', 'Email'], ['address', 'Địa chỉ'],
+  ['unit_code', 'Mã đơn vị'], ['join_date', 'Ngày vào công đoàn'], ['union_position', 'Chức vụ công đoàn'],
+  ['member_status', 'Tình trạng sinh hoạt'], ['note', 'Ghi chú']];
+
+/* ============================ ĐĂNG NHẬP ============================ */
+function renderLogin(message) {
+  const app = clear($('app'));
+  const box = h('div', { class: 'login' });
+  const card = h('div', { class: 'card' });
+  const msg = h('div');
+  if (message) msg.appendChild(alertBox('info', message));
+  const email = h('input', { id: 'login-email', type: 'email', autocomplete: 'email', inputmode: 'email', placeholder: 'ten@coquan.vn', maxlength: '120' });
+  const sendBtn = h('button', { class: 'btn primary big', type: 'submit', text: 'Gửi mã đăng nhập', style: 'width:100%' });
+  const step1 = h('form', { novalidate: true },
+    h('div', { class: 'field' }, h('label', { for: 'login-email', text: 'Email được cấp quyền' }), email,
+      h('div', { class: 'hint', text: 'Hệ thống sẽ gửi mã 6 chữ số tới email này.' })), sendBtn);
+  step1.addEventListener('submit', function (e) {
+    e.preventDefault();
+    clear(msg);
+    const v = email.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { msg.appendChild(alertBox('error', 'Email chưa đúng định dạng. Ví dụ: ten@coquan.vn')); email.focus(); return; }
+    busy(sendBtn, function () {
+      return call('auth.requestOtp', { email: v }).then(function (r) { showStep2(v, r.message); })
+        .catch(function (err) { msg.appendChild(alertBox('error', errorText(err))); });
+    });
+  });
+  function showStep2(addr, info) {
+    clear(card); clear(msg); msg.appendChild(alertBox('ok', info));
+    const otp = h('input', { id: 'login-otp', class: 'otp-input', type: 'text', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6', placeholder: '••••••' });
+    otp.addEventListener('input', function () { otp.value = otp.value.replace(/\D/g, '').substring(0, 6); });
+    const okBtn = h('button', { class: 'btn primary big', type: 'submit', text: 'Đăng nhập', style: 'width:100%' });
+    const f2 = h('form', { novalidate: true },
+      h('p', null, 'Email: ', h('strong', { text: addr })),
+      h('div', { class: 'field' }, h('label', { for: 'login-otp', text: 'Mã đăng nhập (6 chữ số)' }), otp), okBtn,
+      h('div', { class: 'row', style: 'margin-top:14px' },
+        h('button', { class: 'btn', type: 'button', text: 'Đổi email', onclick: function () { renderLogin(); } }),
+        h('span', { class: 'spacer' }),
+        h('button', { class: 'btn', type: 'button', text: 'Gửi lại mã', onclick: function (e) {
+          const b = e.currentTarget;
+          busy(b, function () { return call('auth.requestOtp', { email: addr }).then(function (r) { clear(msg); msg.appendChild(alertBox('ok', r.message)); })
+            .catch(function (err) { clear(msg); msg.appendChild(alertBox('error', errorText(err))); }); });
+        } })));
+    f2.addEventListener('submit', function (e) {
+      e.preventDefault(); clear(msg);
+      if (!/^\d{6}$/.test(otp.value)) { msg.appendChild(alertBox('error', 'Hãy nhập đủ 6 chữ số trong email.')); otp.focus(); return; }
+      busy(okBtn, function () {
+        return call('auth.verifyOtp', { email: addr, otp: otp.value }).then(function (r) {
+          S.token = r.token; store.set(r.token); return startApp();
+        }).catch(function (err) { msg.appendChild(alertBox('error', errorText(err))); otp.select(); });
+      });
+    });
+    append(card, [h('h1', { text: 'Nhập mã đăng nhập' }), msg, f2]);
+    otp.focus();
+  }
+  append(card, [h('h1', { text: 'Đăng nhập phần mềm quản lý đoàn viên' }), msg, step1]);
+  append(box, card);
+  box.appendChild(h('p', { class: 'muted', style: 'text-align:center;font-size:14px', text: 'Không cần mật khẩu. Chưa được cấp quyền? Liên hệ quản trị hệ thống của đơn vị.' }));
+  app.appendChild(box);
+  email.focus();
+}
+function sessionExpired(message) {
+  S.token = null; store.set(null);
+  document.querySelectorAll('.overlay').forEach(function (o) { o.remove(); });
+  renderLogin(message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+}
+
+/* ============================ KHUNG ỨNG DỤNG ============================ */
+const MENU = [
+  ['dashboard', 'Tổng quan'], ['members', 'Đoàn viên'], ['approvals', 'Chờ phê duyệt'], ['transfers', 'Chuyển sinh hoạt'],
+  ['dues', 'Đoàn phí'], ['reports', 'Báo cáo'], ['admin', 'Quản trị']
+];
+function startApp() {
+  clear($('app')).appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tải dữ liệu…'));
+  return call('me').then(function (me) { S.me = me; renderShell(); go('dashboard'); })
+    .catch(function (e) { if (e.code !== 'AUTH') renderLogin(errorText(e)); });
+}
+function renderShell() {
+  const me = S.me;
+  const logout = h('button', { text: 'Đăng xuất', onclick: function (e) {
+    busy(e.currentTarget, function () { return call('auth.logout').catch(function () { }).then(function () { S.token = null; store.set(null); renderLogin('Bạn đã đăng xuất.'); }); });
+  } });
+  const nav = h('nav', { class: 'menu', 'aria-label': 'Menu chính' });
+  MENU.forEach(function (m) {
+    if (m[0] === 'admin' && !me.isAdmin) return;
+    if (m[0] === 'approvals' && !(me.canEdit || me.canApprove)) return;
+    nav.appendChild(h('button', { 'data-view': m[0], onclick: function () { go(m[0]); } }, h('span', { text: m[1] }), h('span', { class: 'badge', hidden: true })));
+  });
+  append(clear($('app')), [
+    h('header', { class: 'topbar' }, h('div', { class: 'brand', text: me.orgName || 'Quản lý đoàn viên' }),
+      h('div', { class: 'who' }, h('div', { text: me.user.full_name }), h('div', { class: 'email', style: 'font-size:12px', text: me.isAdmin ? 'Quản trị hệ thống' : me.roles.join(', ') })), logout),
+    h('div', { class: 'layout' }, nav, h('main', { id: 'main', tabindex: '-1' }))
+  ]);
+}
+function setBadge(view, n) {
+  const b = document.querySelector('nav.menu button[data-view="' + view + '"] .badge');
+  if (!b) return;
+  b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n || '');
+}
+function go(view, arg) {
+  S.view = view;
+  document.querySelectorAll('nav.menu button').forEach(function (b) {
+    if (b.getAttribute('data-view') === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  const main = clear($('main'));
+  main.appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tải…'));
+  const fn = { dashboard: viewDashboard, members: viewMembers, approvals: viewApprovals, transfers: viewTransfers,
+    dues: viewDues, reports: viewReports, admin: viewAdmin }[view];
+  Promise.resolve().then(function () { return fn(main, arg); }).catch(function (e) {
+    if (e.code === 'AUTH') return;
+    clear(main).appendChild(alertBox('error', errorText(e)));
+    main.appendChild(h('button', { class: 'btn', text: 'Thử lại', onclick: function () { go(view, arg); } }));
+  });
+  main.focus({ preventScroll: true });
+  window.scrollTo(0, 0);
+}
+function refreshBadges() {
+  return call('dashboard').then(function (d) {
+    S.dash = d;
+    setBadge('approvals', d.toApprove + d.myReturned);
+    setBadge('transfers', d.incomingTransfers);
+    return d;
+  }).catch(function () { });
+}
+function pager(res, onPage) {
+  if (res.total === 0) return null;
+  return h('div', { class: 'pager' },
+    h('span', { class: 'muted', text: 'Trang ' + res.page + '/' + res.pages + ' — ' + res.total.toLocaleString('vi-VN') + ' dòng' }),
+    h('button', { class: 'btn small', text: '‹ Trước', disabled: res.page <= 1, onclick: function () { onPage(res.page - 1); } }),
+    h('button', { class: 'btn small', text: 'Sau ›', disabled: res.page >= res.pages, onclick: function () { onPage(res.page + 1); } }));
+}
+function table(headers, rows, opts2) {
+  opts2 = opts2 || {};
+  if (!rows.length) return h('div', { class: 'empty', text: opts2.empty || 'Không có dữ liệu.' });
+  const thead = h('thead', null, h('tr', null, headers.map(function (x) { return h('th', { class: x.num ? 'num' : null, text: x.label }); })));
+  const tbody = h('tbody', null, rows.map(function (r) {
+    const tr = h('tr', { class: (r.onclick ? 'clickable ' : '') + (r.cls || '') }, r.cells.map(function (c, i) {
+      const hd = headers[i];
+      return h('td', { class: (hd.num ? 'num ' : '') + (hd.title ? 'title-cell' : ''), 'data-label': hd.label || null }, c);
+    }));
+    if (r.onclick) tr.addEventListener('click', function (e) { if (!e.target.closest('button,input,a,label')) r.onclick(); });
+    return tr;
+  }));
+  return h('div', { class: 'table-wrap' }, h('table', { class: 'data responsive' }, thead, tbody));
+}
+
+/* ============================ TỔNG QUAN ============================ */
+function viewDashboard(main) {
+  return refreshBadges().then(function (d) {
+    clear(main);
+    main.appendChild(h('h1', { text: 'Tổng quan' }));
+    (d.warnings || []).forEach(function (w) { main.appendChild(alertBox('warn', w)); });
+    function stat(num, lbl, view, arg) {
+      return h('div', { class: 'stat' + (view ? ' clickable' : ''), role: view ? 'button' : null, tabindex: view ? '0' : null,
+        onclick: view ? function () { go(view, arg); } : null, onkeydown: view ? function (e) { if (e.key === 'Enter') go(view, arg); } : null },
+        h('div', { class: 'num', text: typeof num === 'number' ? num.toLocaleString('vi-VN') : num }), h('div', { class: 'lbl', text: lbl }));
+    }
+    main.appendChild(h('div', { class: 'stats' },
+      stat(d.totalMembers, 'Đoàn viên đang quản lý', 'members'),
+      S.me.canApprove ? stat(d.toApprove, 'Yêu cầu chờ tôi duyệt', 'approvals', 'approve') : null,
+      S.me.canEdit ? stat(d.myReturned, 'Yêu cầu bị trả lại cần sửa', 'approvals', 'mine') : null,
+      S.me.canEdit ? stat(d.myPending, 'Yêu cầu tôi gửi đang chờ', 'approvals', 'mine') : null,
+      S.me.canEdit ? stat(d.myDrafts, 'Bản nháp chưa gửi', 'approvals', 'mine') : null,
+      S.me.canTransfer ? stat(d.incomingTransfers, 'Chuyển đến chờ xác nhận', 'transfers') : null));
+    const st = h('div', { class: 'card' }, h('h2', { text: 'Đoàn viên theo tình trạng sinh hoạt' }));
+    const list = h('div', { class: 'stats', style: 'margin:0' });
+    Object.keys(d.statusLabels).forEach(function (k) { list.appendChild(stat(d.byStatus[k] || 0, d.statusLabels[k])); });
+    st.appendChild(list);
+    main.appendChild(st);
+    const pr = d.duesPeriod.substring(5, 7) + '/' + d.duesPeriod.substring(0, 4);
+    main.appendChild(h('div', { class: 'card' }, h('h2', { text: 'Đoàn phí tháng ' + pr }),
+      h('div', { class: 'stats', style: 'margin:0' }, stat(money(d.dues.due), 'Phải thu', 'dues'), stat(money(d.dues.paid), 'Đã thu', 'dues'),
+        stat(money(d.dues.missing), 'Còn thiếu', 'dues'), stat(d.dues.recorded, 'Số ghi nhận', 'dues'))));
+    if (S.me.canEdit) main.appendChild(h('div', { class: 'row' },
+      h('button', { class: 'btn primary big', text: '+ Thêm đoàn viên', onclick: function () { openMemberForm('create'); } }),
+      h('button', { class: 'btn big', text: 'Nhập danh sách từ tệp CSV', onclick: openImport })));
+  });
+}
+
+/* ============================ ĐOÀN VIÊN ============================ */
+const MQ = { q: '', unit_id: '', member_status: '', archived: 'active', page: 1, sort: 'full_name', dir: 'asc' };
+function viewMembers(main) {
+  clear(main);
+  main.appendChild(h('h1', { text: 'Đoàn viên' }));
+  const q = h('input', { id: 'm-q', type: 'search', placeholder: 'Tên (gõ không dấu được), mã, điện thoại…', value: MQ.q });
+  const unit = h('select', { id: 'm-unit' }); unitOptions(null, 'Tất cả đơn vị được xem').forEach(function (o) { unit.appendChild(h('option', { value: o[0], text: o[1] })); }); unit.value = MQ.unit_id;
+  const st = h('select', { id: 'm-st' }); [['', 'Mọi tình trạng']].concat(opts(S.me.memberStatus)).forEach(function (o) { st.appendChild(h('option', { value: o[0], text: o[1] })); }); st.value = MQ.member_status;
+  const ar = h('select', { id: 'm-ar' }); [['active', 'Hồ sơ đang hiệu lực'], ['archived', 'Hồ sơ đã lưu trữ'], ['all', 'Tất cả']].forEach(function (o) { ar.appendChild(h('option', { value: o[0], text: o[1] })); }); ar.value = MQ.archived;
+  const sort = h('select', { id: 'm-sort' }); [['full_name|asc', 'Tên A→Z'], ['full_name|desc', 'Tên Z→A'], ['member_code|asc', 'Mã đoàn viên'], ['dob|asc', 'Ngày sinh'], ['updated_at|desc', 'Mới cập nhật']].forEach(function (o) { sort.appendChild(h('option', { value: o[0], text: o[1] })); }); sort.value = MQ.sort + '|' + MQ.dir;
+  const searchBtn = h('button', { class: 'btn primary', text: 'Tìm' });
+  const results = h('div');
+  function load(page) {
+    MQ.q = q.value.trim(); MQ.unit_id = unit.value; MQ.member_status = st.value; MQ.archived = ar.value; MQ.page = page || 1;
+    MQ.sort = sort.value.split('|')[0]; MQ.dir = sort.value.split('|')[1];
+    clear(results).appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tìm…'));
+    return call('members.list', Object.assign({ pageSize: 20 }, MQ)).then(function (res) {
+      clear(results);
+      results.appendChild(table([{ label: 'Mã' }, { label: 'Họ và tên', title: true }, { label: 'Ngày sinh' }, { label: 'Giới tính' }, { label: 'Điện thoại' }, { label: 'Đơn vị' }, { label: 'Tình trạng' }],
+        res.items.map(function (m) {
+          return { onclick: function () { openMember(m.member_id); },
+            cells: [m.member_code, [m.full_name, m.has_pending ? h('span', { class: 'tag warn', style: 'margin-left:6px', text: 'Có yêu cầu chờ duyệt' }) : null, m.archived ? h('span', { class: 'tag', style: 'margin-left:6px', text: 'Đã lưu trữ' }) : null],
+              fmtDate(m.dob), m.gender, m.phone, m.unit_name, statusTag(m.member_status, m.status_label)] };
+        }), { empty: MQ.q ? 'Không tìm thấy đoàn viên phù hợp. Thử gõ ít chữ hơn hoặc bỏ bộ lọc.' : 'Chưa có đoàn viên trong phạm vi của bạn.' }));
+      results.appendChild(pager(res, load));
+    }).catch(function (e) { clear(results).appendChild(alertBox('error', errorText(e))); });
+  }
+  q.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(1); });
+  [unit, st, ar, sort].forEach(function (s) { s.addEventListener('change', function () { load(1); }); });
+  searchBtn.addEventListener('click', function () { load(1); });
+  const actions = h('div', { class: 'row', style: 'margin-bottom:12px' },
+    S.me.canEdit ? h('button', { class: 'btn primary', text: '+ Thêm đoàn viên', onclick: function () { openMemberForm('create'); } }) : null,
+    S.me.canEdit ? h('button', { class: 'btn', text: 'Nhập từ tệp CSV', onclick: openImport }) : null,
+    h('button', { class: 'btn', text: 'Xuất danh sách CSV', onclick: function (e) {
+      busy(e.currentTarget, function () {
+        return call('export.members', MQ, newRid()).then(function (r) { downloadText(r.filename, r.csv); toast('Đã xuất ' + r.count + ' dòng.'); })
+          .catch(function (er) { toast(errorText(er), 'error'); });
+      });
+    } }));
+  append(main, [actions,
+    h('div', { class: 'toolbar' },
+      h('div', { class: 'field', style: 'flex:2 1 260px' }, h('label', { for: 'm-q', text: 'Tìm kiếm' }), q),
+      h('div', { class: 'field', style: 'flex:1 1 200px' }, h('label', { for: 'm-unit', text: 'Đơn vị' }), unit),
+      h('div', { class: 'field', style: 'flex:1 1 160px' }, h('label', { for: 'm-st', text: 'Tình trạng' }), st),
+      h('div', { class: 'field', style: 'flex:1 1 160px' }, h('label', { for: 'm-ar', text: 'Hồ sơ' }), ar),
+      h('div', { class: 'field', style: 'flex:1 1 140px' }, h('label', { for: 'm-sort', text: 'Sắp xếp' }), sort),
+      searchBtn), results]);
+  return load(MQ.page);
+}
+
+function openMember(memberId) {
+  const d = openDialog('Hồ sơ đoàn viên', { wide: true });
+  d.body.appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tải…'));
+  call('members.get', { member_id: memberId }).then(function (r) {
+    const m = r.member;
+    clear(d.body);
+    const kv = function (pairs) { return h('dl', { class: 'kv' }, pairs.map(function (p) { return [h('dt', { text: p[0] }), h('dd', { text: p[1] || '—' })]; })); };
+    append(d.body, [
+      m.archived ? alertBox('warn', 'Hồ sơ đã được lưu trữ (không còn hiệu lực).') : null,
+      h('h3', { text: 'Thông tin cơ bản' }),
+      kv([['Mã đoàn viên', m.member_code], ['Họ và tên', m.full_name], ['Ngày sinh', fmtDate(m.dob)], ['Giới tính', m.gender],
+        ['Loại giấy tờ', m.id_type], ['Số giấy tờ', m.id_number]]),
+      h('h3', { text: 'Thông tin liên hệ' }),
+      kv([['Số điện thoại', m.phone], ['Email', m.email], ['Địa chỉ', m.address]]),
+      h('h3', { text: 'Thông tin công đoàn' }),
+      kv([['Đơn vị', m.unit_name], ['Ngày vào công đoàn', fmtDate(m.join_date)], ['Chức vụ công đoàn', m.union_position],
+        ['Tình trạng sinh hoạt', m.status_label], ['Ghi chú', m.note]]),
+      h('h3', { text: 'Lịch sử sinh hoạt theo đơn vị' }),
+      table([{ label: 'Ngày' }, { label: 'Sự kiện' }, { label: 'Đơn vị' }, { label: 'Ghi chú' }],
+        r.history.map(function (x) { return { cells: [fmtDate(x.event_date), EVENT_LABELS[x.event] || x.event, x.unit_name, x.note] }; })),
+      r.transfers.length ? [h('h3', { text: 'Yêu cầu chuyển sinh hoạt' }),
+        table([{ label: 'Từ' }, { label: 'Đến' }, { label: 'Ngày đề nghị' }, { label: 'Trạng thái' }],
+          r.transfers.map(function (t) { return { cells: [t.from, t.to, fmtDate(t.proposed_date), statusTag(t.status, t.status_label)] }; }))] : null,
+      r.requests.length ? [h('h3', { text: 'Yêu cầu thay đổi hồ sơ' }),
+        table([{ label: 'Loại' }, { label: 'Người lập' }, { label: 'Lúc' }, { label: 'Trạng thái' }],
+          r.requests.map(function (c) { return { onclick: function () { d.close(); openRequest(c.change_id); }, cells: [c.type_label, c.created_by, fmtDT(c.created_at), statusTag(c.status, c.status_label)] }; }))] : null,
+      h('p', { class: 'muted', style: 'font-size:13px', text: 'Phiên bản hồ sơ: ' + m.version + (m.updated_at ? ' — cập nhật ' + fmtDT(m.updated_at) + ' bởi ' + m.updated_by : '') })
+    ]);
+    if (r.can_edit && !m.archived) {
+      d.footer.appendChild(h('button', { class: 'btn danger', text: 'Lưu trữ hồ sơ', onclick: function () { d.close(); openReasonRequest('ARCHIVE', m); } }));
+      if (r.can_transfer) d.footer.appendChild(h('button', { class: 'btn', text: 'Chuyển sinh hoạt', onclick: function () { d.close(); openTransferForm(m); } }));
+      d.footer.appendChild(h('button', { class: 'btn primary', text: 'Sửa hồ sơ', onclick: function () { d.close(); openMemberForm('update', m); } }));
+    } else if (r.can_edit && m.archived) {
+      d.footer.appendChild(h('button', { class: 'btn primary', text: 'Khôi phục hồ sơ', onclick: function () { d.close(); openReasonRequest('RESTORE', m); } }));
+    }
+    d.footer.appendChild(h('button', { class: 'btn', text: 'Đóng', onclick: d.close }));
+  }).catch(function (e) { clear(d.body); d.error(e); });
+}
+
+/** Định nghĩa biểu mẫu hồ sơ: trường thường dùng hiện sẵn, trường ít dùng ở "Thông tin bổ sung". */
+function memberDefs(mode) {
+  const me = S.me;
+  return {
+    basic: [
+      { name: 'full_name', label: 'Họ và tên', required: true, max: 100, autocomplete: 'off' },
+      { name: 'dob', label: 'Ngày sinh', type: 'date', hint: 'Ví dụ: 05/09/1990' },
+      { name: 'gender', label: 'Giới tính', type: 'select', options: [['', '— Chọn —']].concat(me.genders.map(function (g) { return [g, g]; })) }
+    ],
+    contact: [{ name: 'phone', label: 'Số điện thoại', inputmode: 'tel', max: 20, hint: 'Ví dụ: 0912345678' }],
+    union: [
+      mode === 'create'
+        ? { name: 'unit_id', label: 'Đơn vị', type: 'select', required: true, options: unitOptions(function (u) { return u.can_edit && u.status === 'active'; }, '— Chọn đơn vị —') }
+        : null,
+      { name: 'join_date', label: 'Ngày vào công đoàn', type: 'date' },
+      { name: 'member_status', label: 'Tình trạng sinh hoạt', type: 'select', options: opts(me.memberStatus), default: 'ACTIVE' }
+    ].filter(Boolean),
+    more: [
+      { name: 'member_code', label: 'Mã đoàn viên', max: 20, hint: mode === 'create' ? 'Để trống để hệ thống tự cấp mã khi được duyệt.' : 'Giữ nguyên nếu không cần đổi.' },
+      { name: 'id_type', label: 'Loại giấy tờ', type: 'select', options: [['', '— Chưa có —']].concat(me.idTypes.map(function (t) { return [t, t]; })) },
+      { name: 'id_number', label: 'Số giấy tờ định danh', max: 20, inputmode: 'numeric', hint: 'Có thể để trống nếu chưa có. CCCD gồm 12 chữ số.' },
+      { name: 'email', label: 'Email', type: 'email', max: 120 },
+      { name: 'address', label: 'Địa chỉ', max: 255 },
+      { name: 'union_position', label: 'Chức vụ công đoàn', max: 100 },
+      { name: 'note', label: 'Ghi chú', type: 'textarea', max: 1000 }
+    ]
+  };
+}
+
+/**
+ * Biểu mẫu thêm/sửa. mode: 'create' | 'update' (từ hồ sơ) | 'edit-request' (sửa yêu cầu nháp/bị trả lại).
+ * ctxData: hồ sơ (update) hoặc {request, data, base_version} (edit-request).
+ */
+function openMemberForm(mode, ctxData) {
+  let type = mode === 'create' ? 'CREATE' : 'UPDATE', values = {}, title, changeId = null, baseVersion, memberId;
+  if (mode === 'create') { title = 'Thêm đoàn viên mới'; }
+  else if (mode === 'update') { values = ctxData; title = 'Sửa hồ sơ: ' + ctxData.full_name; baseVersion = ctxData.version; memberId = ctxData.member_id; }
+  else { type = ctxData.request.request_type; values = ctxData.data; changeId = ctxData.request.change_id; baseVersion = ctxData.base_version; title = 'Sửa yêu cầu: ' + ctxData.request.summary; }
+  const defs = memberDefs(type === 'CREATE' ? 'create' : 'update');
+  const all = defs.basic.concat(defs.contact, defs.union, defs.more);
+  const form = makeForm(all, values);
+  const d = openDialog(title, { wide: true, modal: true });
+  let rid = newRid();
+  const moreOpen = ['member_code', 'id_type', 'id_number', 'email', 'address', 'union_position', 'note'].some(function (k) { return values[k]; });
+  append(d.body, [
+    type === 'UPDATE' ? alertBox('info', 'Thay đổi chỉ có hiệu lực sau khi người phê duyệt đồng ý. Muốn đổi đơn vị, hãy dùng chức năng "Chuyển sinh hoạt".') : null,
+    h('fieldset', null, h('legend', { text: 'Thông tin cơ bản' }), h('div', { class: 'grid3' }, defs.basic.map(function (x) { return form.el(x.name); }))),
+    h('fieldset', null, h('legend', { text: 'Thông tin liên hệ' }), h('div', { class: 'grid3' }, defs.contact.map(function (x) { return form.el(x.name); }))),
+    h('fieldset', null, h('legend', { text: 'Thông tin công đoàn' }),
+      mode === 'update' ? h('p', null, h('strong', { text: 'Đơn vị: ' }), values.unit_name || '') : null,
+      h('div', { class: 'grid3' }, defs.union.map(function (x) { return form.el(x.name); }))),
+    h('details', { class: 'more', open: moreOpen }, h('summary', { text: 'Thông tin bổ sung (mã đoàn viên, giấy tờ, email, địa chỉ, chức vụ, ghi chú)' }),
+      h('div', { class: 'grid2' }, defs.more.filter(function (x) { return x.name !== 'note'; }).map(function (x) { return form.el(x.name); })), form.el('note'))
+  ]);
+  function send(submit, btn) {
+    d.error(null); form.clearErrors();
+    const data = form.get();
+    if (!data.full_name) { form.showErrors({ full_name: 'Vui lòng nhập họ và tên.' }); return; }
+    if (type === 'CREATE' && !data.unit_id && !changeId) { form.showErrors({ unit_id: 'Vui lòng chọn đơn vị.' }); return; }
+    if (changeId && type === 'CREATE' && !data.unit_id) data.unit_id = values.unit_id;
+    const payload = { request_type: type, data: data, submit: submit, change_id: changeId, member_id: memberId, base_version: baseVersion };
+    busy(btn, function () {
+      return call('change.save', payload, rid).then(function (r) {
+        rid = newRid(); d.close(); toast(r.message); refreshBadges();
+        if (S.view === 'members') go('members'); else if (S.view === 'approvals') go('approvals', 'mine');
+      }).catch(function (e) {
+        if (e.code !== 'NETWORK') rid = newRid();
+        if (e.details) form.showErrors(e.details);
+        d.error(e);
+      });
+    });
+  }
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Hủy bỏ', onclick: d.close }));
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Lưu nháp', onclick: function (e) { send(false, e.currentTarget); } }));
+  d.footer.appendChild(h('button', { class: 'btn primary', text: 'Gửi duyệt', onclick: function (e) { send(true, e.currentTarget); } }));
+}
+
+function openReasonRequest(type, m) {
+  const title = type === 'ARCHIVE' ? 'Lưu trữ hồ sơ: ' + m.full_name : 'Khôi phục hồ sơ: ' + m.full_name;
+  const d = openDialog(title);
+  const form = makeForm([{ name: 'reason', label: 'Lý do', type: 'textarea', required: true, max: 500 }]);
+  append(d.body, [alertBox('info', type === 'ARCHIVE' ? 'Hồ sơ không bị xóa mà chuyển sang trạng thái lưu trữ sau khi được duyệt.' : 'Hồ sơ sẽ có hiệu lực trở lại sau khi được duyệt.'), form.el('reason')]);
+  let rid = newRid();
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Hủy bỏ', onclick: d.close }));
+  d.footer.appendChild(h('button', { class: 'btn primary', text: 'Gửi duyệt', onclick: function (e) {
+    const v = form.get();
+    if (!v.reason) { form.showErrors({ reason: 'Vui lòng ghi lý do.' }); return; }
+    busy(e.currentTarget, function () {
+      return call('change.save', { request_type: type, member_id: m.member_id, base_version: m.version, data: { reason: v.reason }, submit: true }, rid)
+        .then(function (r) { d.close(); toast(r.message); refreshBadges(); if (S.view === 'members') go('members'); })
+        .catch(function (er) { if (er.code !== 'NETWORK') rid = newRid(); if (er.details) form.showErrors(er.details); d.error(er); });
+    });
+  } }));
+}
+
+/* ============================ PHÊ DUYỆT ============================ */
+function viewApprovals(main, tab) {
+  tab = tab || (S.me.canApprove ? 'approve' : 'mine');
+  clear(main);
+  main.appendChild(h('h1', { text: 'Chờ phê duyệt' }));
+  const tabs = [['approve', 'Chờ tôi duyệt', S.me.canApprove], ['mine', 'Yêu cầu tôi lập', S.me.canEdit || S.me.isAdmin], ['history', 'Lịch sử xử lý', true]];
+  main.appendChild(h('div', { class: 'tabs', role: 'tablist' }, tabs.filter(function (t) { return t[2]; }).map(function (t) {
+    return h('button', { role: 'tab', 'aria-selected': t[0] === tab ? 'true' : 'false', text: t[1], onclick: function () { go('approvals', t[0]); } });
+  })));
+  const st = h('select', { id: 'a-st' });
+  [['', 'Mọi trạng thái'], ['DRAFT', 'Nháp'], ['PENDING', 'Chờ duyệt'], ['APPROVED', 'Đã duyệt'], ['RETURNED', 'Trả lại'], ['CANCELLED', 'Đã hủy']]
+    .forEach(function (o) { st.appendChild(h('option', { value: o[0], text: o[1] })); });
+  const q = h('input', { id: 'a-q', type: 'search', placeholder: 'Tên đoàn viên…' });
+  const results = h('div');
+  const selected = {};
+  const bulkBtn = h('button', { class: 'btn ok', text: 'Duyệt các yêu cầu đã chọn', disabled: true });
+  function updateBulk() { const n = Object.keys(selected).filter(function (k) { return selected[k]; }).length; bulkBtn.disabled = !n; bulkBtn.textContent = n ? 'Duyệt ' + n + ' yêu cầu đã chọn' : 'Duyệt các yêu cầu đã chọn'; }
+  let bulkRid = newRid();
+  bulkBtn.addEventListener('click', function () {
+    const ids = Object.keys(selected).filter(function (k) { return selected[k]; });
+    confirmDialog('Duyệt hàng loạt', 'Duyệt ' + ids.length + ' yêu cầu đã chọn? Hãy chắc chắn bạn đã xem nội dung từng yêu cầu.', 'Duyệt').then(function (yes) {
+      if (!yes) return;
+      busy(bulkBtn, function () {
+        return call('change.approveMany', { change_ids: ids }, bulkRid).then(function (r) {
+          bulkRid = newRid();
+          const failed = r.results.filter(function (x) { return !x.ok; });
+          toast(r.message, failed.length ? 'error' : '');
+          if (failed.length) toast('Không duyệt được: ' + failed.map(function (f) { return f.message; }).join('; '), 'error');
+          go('approvals', tab);
+        }).catch(function (e) { toast(errorText(e), 'error'); });
+      });
+    });
+  });
+  function load(page) {
+    clear(results).appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tải…'));
+    return call('change.list', { box: tab, status: st.value, q: q.value, page: page || 1, pageSize: 20 }).then(function (res) {
+      clear(results);
+      const headers = (tab === 'approve' ? [{ label: 'Chọn' }] : []).concat([{ label: 'Nội dung', title: true }, { label: 'Đơn vị' }, { label: 'Người lập' }, { label: 'Gửi lúc' }, { label: 'Trạng thái' }]);
+      results.appendChild(table(headers, res.items.map(function (c) {
+        const cells = [[c.summary, c.import_job_id ? h('span', { class: 'tag', style: 'margin-left:6px', text: 'Nhập từ tệp' }) : null], c.unit_name, c.created_by, fmtDT(c.submitted_at || c.created_at),
+          [statusTag(c.status, c.status_label), c.status === 'RETURNED' && c.decision_note ? h('div', { class: 'muted', style: 'font-size:13px', text: 'Lý do: ' + c.decision_note }) : null]];
+        if (tab === 'approve') cells.unshift(h('input', { type: 'checkbox', 'aria-label': 'Chọn ' + c.summary, checked: !!selected[c.change_id], onchange: function (e) { selected[c.change_id] = e.target.checked; updateBulk(); } }));
+        return { onclick: function () { openRequest(c.change_id); }, cells: cells };
+      }), { empty: tab === 'approve' ? 'Không có yêu cầu nào chờ bạn duyệt.' : 'Không có yêu cầu nào.' }));
+      results.appendChild(pager(res, load));
+    }).catch(function (e) { clear(results).appendChild(alertBox('error', errorText(e))); });
+  }
+  st.addEventListener('change', function () { load(1); });
+  q.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(1); });
+  append(main, [h('div', { class: 'toolbar' },
+    h('div', { class: 'field', style: 'flex:2 1 220px' }, h('label', { for: 'a-q', text: 'Tìm' }), q),
+    tab !== 'approve' ? h('div', { class: 'field', style: 'flex:1 1 180px' }, h('label', { for: 'a-st', text: 'Trạng thái' }), st) : null,
+    h('button', { class: 'btn', text: 'Tìm', onclick: function () { load(1); } }), tab === 'approve' ? bulkBtn : null), results]);
+  refreshBadges();
+  return load(1);
+}
+
+function openRequest(changeId) {
+  const d = openDialog('Chi tiết yêu cầu', { wide: true });
+  d.body.appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tải…'));
+  call('change.get', { change_id: changeId }).then(function (r) {
+    const c = r.request;
+    clear(d.body);
+    append(d.body, [
+      h('p', null, h('strong', { text: c.summary }), ' ', statusTag(c.status, c.status_label)),
+      h('p', { class: 'muted', text: 'Đơn vị: ' + c.unit_name + ' — Người lập: ' + c.created_by + ' — ' + fmtDT(c.created_at) }),
+      r.stale ? alertBox('warn', 'Hồ sơ đã thay đổi sau khi yêu cầu được lập (xung đột phiên bản). Nên trả lại để người lập cập nhật.') : null,
+      c.status === 'RETURNED' ? alertBox('error', 'Bị trả lại: ' + (c.decision_note || '')) : null,
+      h('h3', { text: c.request_type === 'CREATE' ? 'Thông tin đề nghị thêm mới' : 'So sánh giá trị cũ và mới' }),
+      table(c.request_type === 'CREATE' ? [{ label: 'Trường' }, { label: 'Giá trị' }] : [{ label: 'Trường' }, { label: 'Giá trị cũ' }, { label: 'Giá trị mới' }],
+        r.diff.filter(function (x) { return c.request_type !== 'UPDATE' || x.changed || x.old; }).map(function (x) {
+          const show = function (field, v) { return /dob|join_date/.test(field) ? fmtDate(v) : v; };
+          return c.request_type === 'CREATE'
+            ? { cells: [x.label, show(x.field, x.new)] }
+            : { cls: x.changed ? 'changed' : '', cells: [x.label, h('span', { class: x.changed ? 'diff-old' : '', text: show(x.field, x.old) || '—' }), h('span', { class: x.changed ? 'diff-new' : '', text: show(x.field, x.new) || '—' })] };
+        })),
+      h('h3', { text: 'Lịch sử xử lý' }),
+      table([{ label: 'Thời gian' }, { label: 'Hành động' }, { label: 'Người thực hiện' }, { label: 'Ghi chú' }],
+        r.actions.map(function (a) { return { cells: [fmtDT(a.at), ACTION_LABELS[a.action] || a.action, a.actor, a.note] }; }))
+    ]);
+    let rid = newRid();
+    function act(action, payload, btn, ok) {
+      d.error(null);
+      return busy(btn, function () {
+        return call(action, Object.assign({ change_id: changeId }, payload || {}), rid).then(function (res) {
+          rid = newRid(); d.close(); toast(res.message || ok); refreshBadges(); if (S.view === 'approvals') go('approvals');
+        }).catch(function (e) { if (e.code !== 'NETWORK') rid = newRid(); d.error(e); });
+      });
+    }
+    if (r.can_cancel) d.footer.appendChild(h('button', { class: 'btn danger', text: 'Hủy yêu cầu', onclick: function (e) {
+      const b = e.currentTarget; confirmDialog('Hủy yêu cầu', 'Bạn chắc chắn muốn hủy yêu cầu này?', 'Hủy yêu cầu', true).then(function (y) { if (y) act('change.cancel', {}, b); });
+    } }));
+    if (r.can_edit && (c.request_type === 'CREATE' || c.request_type === 'UPDATE')) d.footer.appendChild(h('button', { class: 'btn', text: 'Sửa và gửi lại', onclick: function () { d.close(); openMemberForm('edit-request', r); } }));
+    if (r.can_edit && c.status === 'DRAFT') d.footer.appendChild(h('button', { class: 'btn primary', text: 'Gửi duyệt', onclick: function (e) { act('change.submit', {}, e.currentTarget); } }));
+    if (r.can_approve) {
+      const note = h('textarea', { id: 'ret-note', maxlength: '500', placeholder: 'Ghi rõ cần sửa gì…' });
+      const retWrap = h('div', { class: 'field', hidden: true }, h('label', { for: 'ret-note', text: 'Lý do trả lại (bắt buộc)' }), note);
+      d.body.appendChild(retWrap);
+      d.footer.appendChild(h('button', { class: 'btn danger', text: 'Trả lại', onclick: function (e) {
+        if (retWrap.hidden) { retWrap.hidden = false; note.focus(); return; }
+        if (!note.value.trim()) { d.error({ message: 'Vui lòng ghi lý do trả lại.' }); note.focus(); return; }
+        act('change.return', { note: note.value.trim() }, e.currentTarget);
+      } }));
+      d.footer.appendChild(h('button', { class: 'btn ok', text: 'Duyệt', onclick: function (e) { act('change.approve', {}, e.currentTarget); } }));
+    }
+    d.footer.appendChild(h('button', { class: 'btn', text: 'Đóng', onclick: d.close }));
+  }).catch(function (e) { clear(d.body); d.error(e); });
+}
+
+/* ============================ CHUYỂN SINH HOẠT ============================ */
+function openTransferForm(m) {
+  const d = openDialog('Chuyển sinh hoạt: ' + m.full_name);
+  const form = makeForm([
+    { name: 'to_unit_id', label: 'Đơn vị đến', type: 'select', required: true,
+      options: [['', '— Chọn đơn vị đến —']].concat(S.me.transferTargets.filter(function (u) { return u.unit_id !== m.unit_id; }).map(function (u) { return [u.unit_id, u.path]; })) },
+    { name: 'proposed_date', label: 'Ngày đề nghị chuyển', type: 'date', required: true, default: todayVN() },
+    { name: 'effective_date', label: 'Ngày hiệu lực (nếu đã biết)', type: 'date' },
+    { name: 'reason', label: 'Lý do', type: 'textarea', required: true, max: 500 }
+  ]);
+  append(d.body, [alertBox('info', 'Đơn vị hiện tại: ' + m.unit_name + '. Đơn vị đến phải xác nhận thì việc chuyển mới hoàn tất. Mã đoàn viên được giữ nguyên.'),
+    form.el('to_unit_id'), h('div', { class: 'grid2' }, form.el('proposed_date'), form.el('effective_date')), form.el('reason')]);
+  let rid = newRid();
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Hủy bỏ', onclick: d.close }));
+  d.footer.appendChild(h('button', { class: 'btn primary', text: 'Gửi yêu cầu chuyển', onclick: function (e) {
+    const v = form.get(); v.member_id = m.member_id;
+    const errs = {};
+    if (!v.to_unit_id) errs.to_unit_id = 'Vui lòng chọn đơn vị đến.';
+    if (!v.reason) errs.reason = 'Vui lòng ghi lý do.';
+    if (Object.keys(errs).length) { form.showErrors(errs); return; }
+    busy(e.currentTarget, function () {
+      return call('transfer.create', v, rid).then(function (r) { d.close(); toast(r.message); })
+        .catch(function (er) { if (er.code !== 'NETWORK') rid = newRid(); if (er.details) form.showErrors(er.details); d.error(er); });
+    });
+  } }));
+}
+
+function viewTransfers(main, tab) {
+  tab = tab || 'incoming';
+  clear(main);
+  main.appendChild(h('h1', { text: 'Chuyển sinh hoạt' }));
+  main.appendChild(alertBox('info', 'Để lập yêu cầu chuyển: vào "Đoàn viên", mở hồ sơ rồi bấm "Chuyển sinh hoạt".'));
+  main.appendChild(h('div', { class: 'tabs', role: 'tablist' }, [['incoming', 'Chờ đơn vị tôi xác nhận'], ['outgoing', 'Đơn vị tôi chuyển đi'], ['all', 'Tất cả']].map(function (t) {
+    return h('button', { role: 'tab', 'aria-selected': t[0] === tab ? 'true' : 'false', text: t[1], onclick: function () { go('transfers', t[0]); } });
+  })));
+  const results = h('div');
+  main.appendChild(results);
+  function decide(t, kind) {
+    const titles = { confirm: 'Xác nhận nhận đoàn viên', reject: 'Từ chối yêu cầu chuyển', cancel: 'Hủy yêu cầu chuyển' };
+    const d = openDialog(titles[kind] + ': ' + t.member_name);
+    const defs = [];
+    if (kind === 'confirm') defs.push({ name: 'effective_date', label: 'Ngày hiệu lực', type: 'date', required: true, default: t.effective_date || todayVN() });
+    defs.push({ name: 'note', label: kind === 'reject' ? 'Lý do từ chối' : 'Ghi chú', type: 'textarea', required: kind === 'reject', max: 500 });
+    const form = makeForm(defs);
+    append(d.body, [h('p', { text: 'Từ: ' + t.from_unit }), h('p', { text: 'Đến: ' + t.to_unit }), h('p', { text: 'Lý do chuyển: ' + t.reason }), defs.map(function (x) { return form.el(x.name); })]);
+    let rid = newRid();
+    d.footer.appendChild(h('button', { class: 'btn', text: 'Đóng', onclick: d.close }));
+    d.footer.appendChild(h('button', { class: 'btn ' + (kind === 'confirm' ? 'ok' : 'danger'), text: titles[kind], onclick: function (e) {
+      const v = form.get(); v.transfer_id = t.transfer_id;
+      if (kind === 'reject' && !v.note) { form.showErrors({ note: 'Vui lòng ghi lý do.' }); return; }
+      busy(e.currentTarget, function () {
+        return call('transfer.' + kind, v, rid).then(function (r) { d.close(); toast(r.message); refreshBadges(); go('transfers', tab); })
+          .catch(function (er) { if (er.code !== 'NETWORK') rid = newRid(); if (er.details) form.showErrors(er.details); d.error(er); });
+      });
+    } }));
+  }
+  function load(page) {
+    clear(results).appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tải…'));
+    return call('transfer.list', { box: tab, page: page || 1, pageSize: 20 }).then(function (res) {
+      clear(results);
+      results.appendChild(table([{ label: 'Đoàn viên', title: true }, { label: 'Từ đơn vị' }, { label: 'Đến đơn vị' }, { label: 'Ngày đề nghị' }, { label: 'Trạng thái' }, { label: 'Thao tác' }],
+        res.items.map(function (t) {
+          return { cells: [t.member_name + (t.member_code ? ' (' + t.member_code + ')' : ''), t.from_unit, t.to_unit, fmtDate(t.proposed_date),
+            [statusTag(t.status, t.status_label), t.decision_note ? h('div', { class: 'muted', style: 'font-size:13px', text: t.decision_note }) : null],
+            h('div', { class: 'row' },
+              t.can_confirm ? h('button', { class: 'btn small ok', text: 'Xác nhận', onclick: function () { decide(t, 'confirm'); } }) : null,
+              t.can_confirm ? h('button', { class: 'btn small danger', text: 'Từ chối', onclick: function () { decide(t, 'reject'); } }) : null,
+              t.can_cancel ? h('button', { class: 'btn small', text: 'Hủy', onclick: function () { decide(t, 'cancel'); } }) : null)] };
+        }), { empty: tab === 'incoming' ? 'Không có yêu cầu chuyển đến nào chờ xác nhận.' : 'Không có yêu cầu nào.' }));
+      results.appendChild(pager(res, load));
+    }).catch(function (e) { clear(results).appendChild(alertBox('error', errorText(e))); });
+  }
+  return load(1);
+}
+
+/* ============================ ĐOÀN PHÍ ============================ */
+const DQ = { year: Number(todayVN().substring(0, 4)), month: Number(todayVN().substring(5, 7)), unit_id: '', state: '', q: '', page: 1 };
+function periodOf(y, m) { return y + '-' + (m < 10 ? '0' : '') + m; }
+function periodSelects(idp, y, m) {
+  const ms = h('select', { id: idp + '-m', 'aria-label': 'Tháng' });
+  for (let i = 1; i <= 12; i++) ms.appendChild(h('option', { value: i, text: 'Tháng ' + i }));
+  ms.value = m;
+  const ys = h('select', { id: idp + '-y', 'aria-label': 'Năm' });
+  const cy = Number(todayVN().substring(0, 4));
+  for (let i = cy + 1; i >= cy - 5; i--) ys.appendChild(h('option', { value: i, text: String(i) }));
+  ys.value = y;
+  return { m: ms, y: ys, period: function () { return periodOf(Number(ys.value), Number(ms.value)); } };
+}
+function viewDues(main) {
+  clear(main);
+  main.appendChild(h('h1', { text: 'Đoàn phí' }));
+  main.appendChild(alertBox('info', 'Phần mềm chỉ ghi nhận số phải thu và đã thu, không thu tiền trực tuyến. Mức phải thu do người có quyền nhập; hệ thống không tự áp mức theo quy định.'));
+  const ps = periodSelects('d', DQ.year, DQ.month);
+  const unit = h('select', { id: 'd-unit' }); unitOptions(null, 'Tất cả đơn vị được xem').forEach(function (o) { unit.appendChild(h('option', { value: o[0], text: o[1] })); }); unit.value = DQ.unit_id;
+  const state = h('select', { id: 'd-state' });
+  [['', 'Tất cả'], ['none', 'Chưa ghi nhận'], ['unpaid', 'Chưa thu'], ['partial', 'Thu một phần'], ['paid', 'Đã thu đủ']].forEach(function (o) { state.appendChild(h('option', { value: o[0], text: o[1] })); });
+  state.value = DQ.state;
+  const q = h('input', { id: 'd-q', type: 'search', placeholder: 'Tên, mã…', value: DQ.q });
+  const summary = h('div'), results = h('div');
+  let lastRes = null;
+  function load(page) {
+    DQ.year = Number(ps.y.value); DQ.month = Number(ps.m.value); DQ.unit_id = unit.value; DQ.state = state.value; DQ.q = q.value.trim(); DQ.page = page || 1;
+    clear(results).appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tải…'));
+    return call('dues.list', { period: ps.period(), unit_id: DQ.unit_id, state: DQ.state, q: DQ.q, page: DQ.page, pageSize: 50 }).then(function (res) {
+      lastRes = res;
+      const s = res.summary;
+      clear(summary).appendChild(h('div', { class: 'stats' },
+        [['Đoàn viên trong danh sách', s.members.toLocaleString('vi-VN')], ['Đã ghi nhận', s.recorded.toLocaleString('vi-VN')], ['Phải thu', money(s.due)], ['Đã thu', money(s.paid)], ['Còn thiếu', money(s.missing)]]
+          .map(function (x) { return h('div', { class: 'stat' }, h('div', { class: 'num', style: 'font-size:22px', text: x[1] }), h('div', { class: 'lbl', text: x[0] })); })));
+      clear(results);
+      const stateLbl = { none: ['Chưa ghi nhận', ''], unpaid: ['Chưa thu', 'danger'], partial: ['Thu một phần', 'warn'], paid: ['Đã thu đủ', 'ok'] };
+      results.appendChild(table([{ label: 'Mã' }, { label: 'Họ và tên', title: true }, { label: 'Đơn vị' }, { label: 'Phải thu', num: true }, { label: 'Đã thu', num: true }, { label: 'Còn thiếu', num: true }, { label: 'Ngày thu' }, { label: 'Tình trạng' }, { label: 'Thao tác' }],
+        res.items.map(function (x) {
+          const dd = x.dues;
+          return { cells: [x.member_code, x.full_name, x.unit_name, dd ? money(dd.amount_due) : '', dd ? money(dd.amount_paid) : '', dd ? money(Math.max(dd.amount_due - dd.amount_paid, 0)) : '',
+            dd ? fmtDate(dd.paid_date) : '', h('span', { class: 'tag ' + stateLbl[x.state][1], text: stateLbl[x.state][0] }),
+            x.can_record ? h('button', { class: 'btn small', text: dd ? 'Điều chỉnh' : 'Ghi nhận', onclick: function () { dd ? openDuesAdjust(x, load) : openDuesRecord([x], load); } }) : null] };
+        }), { empty: 'Không có đoàn viên phù hợp.' }));
+      results.appendChild(pager(res, load));
+    }).catch(function (e) { clear(results).appendChild(alertBox('error', errorText(e))); });
+  }
+  [ps.m, ps.y, unit, state].forEach(function (s) { s.addEventListener('change', function () { load(1); }); });
+  q.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(1); });
+  append(main, [
+    h('div', { class: 'toolbar' },
+      h('div', { class: 'field', style: 'flex:0 1 130px' }, h('label', { for: 'd-m', text: 'Tháng' }), ps.m),
+      h('div', { class: 'field', style: 'flex:0 1 110px' }, h('label', { for: 'd-y', text: 'Năm' }), ps.y),
+      h('div', { class: 'field', style: 'flex:1 1 220px' }, h('label', { for: 'd-unit', text: 'Đơn vị' }), unit),
+      h('div', { class: 'field', style: 'flex:1 1 150px' }, h('label', { for: 'd-state', text: 'Tình trạng' }), state),
+      h('div', { class: 'field', style: 'flex:1 1 160px' }, h('label', { for: 'd-q', text: 'Tìm' }), q),
+      h('button', { class: 'btn', text: 'Xem', onclick: function () { load(1); } })),
+    h('div', { class: 'row', style: 'margin-bottom:12px' },
+      S.me.canDues ? h('button', { class: 'btn primary', text: 'Ghi nhận cho cả trang đang xem', onclick: function () {
+        if (!lastRes) return;
+        const todo = lastRes.items.filter(function (x) { return !x.dues && x.can_record; });
+        if (!todo.length) { toast('Mọi đoàn viên trên trang này đã được ghi nhận hoặc bạn không có quyền ghi.', 'error'); return; }
+        openDuesRecord(todo, load);
+      } }) : null,
+      h('button', { class: 'btn', text: 'Xuất CSV chi tiết kỳ này', onclick: function (e) {
+        busy(e.currentTarget, function () { return call('export.report', { type: 'dues_detail', period: ps.period(), unit_id: unit.value }, newRid()).then(function (r) { downloadText(r.filename, r.csv); }).catch(function (er) { toast(errorText(er), 'error'); }); });
+      } })),
+    summary, results]);
+  return load(DQ.page);
+}
+function openDuesRecord(items, reload) {
+  const period = periodOf(DQ.year, DQ.month);
+  const d = openDialog('Ghi nhận đoàn phí tháng ' + DQ.month + '/' + DQ.year + (items.length > 1 ? ' — ' + items.length + ' đoàn viên' : ': ' + items[0].full_name), { wide: true, modal: true });
+  const dflt = S.me.duesDefault || '';
+  const allDue = h('input', { id: 'dr-due', inputmode: 'numeric', value: dflt, placeholder: 'VND' });
+  const fullPaid = h('input', { type: 'checkbox', id: 'dr-full' });
+  const paidDate = dateInput('dr-date', todayVN());
+  const rowsInputs = items.map(function (x) {
+    const due = h('input', { inputmode: 'numeric', value: dflt, 'aria-label': 'Phải thu của ' + x.full_name, style: 'width:120px' });
+    const paid = h('input', { inputmode: 'numeric', value: '0', 'aria-label': 'Đã thu của ' + x.full_name, style: 'width:120px' });
+    return { x: x, due: due, paid: paid };
+  });
+  allDue.addEventListener('input', function () { rowsInputs.forEach(function (r) { r.due.value = allDue.value; if (fullPaid.checked) r.paid.value = allDue.value; }); });
+  fullPaid.addEventListener('change', function () { rowsInputs.forEach(function (r) { r.paid.value = fullPaid.checked ? r.due.value : '0'; }); });
+  append(d.body, [
+    h('div', { class: 'grid3' },
+      h('div', { class: 'field' }, h('label', { for: 'dr-due', text: 'Số phải thu áp dụng cho tất cả (VND)' }), allDue, h('div', { class: 'hint', text: 'Có thể sửa từng dòng bên dưới.' })),
+      h('div', { class: 'field' }, h('label', { for: 'dr-date', text: 'Ngày thu' }), paidDate),
+      h('div', { class: 'field' }, h('label', { style: 'display:flex;gap:8px;align-items:center;margin-top:28px' }, fullPaid, 'Đánh dấu đã thu đủ'))),
+    table([{ label: 'Họ và tên', title: true }, { label: 'Phải thu (VND)' }, { label: 'Đã thu (VND)' }], rowsInputs.map(function (r) { return { cells: [r.x.full_name + ' (' + r.x.member_code + ')', r.due, r.paid] }; }))
+  ]);
+  let rid = newRid();
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Hủy bỏ', onclick: d.close }));
+  d.footer.appendChild(h('button', { class: 'btn primary', text: 'Lưu ghi nhận', onclick: function (e) {
+    const payload = { period: period, items: rowsInputs.map(function (r) {
+      return { member_id: r.x.member_id, amount_due: r.due.value.trim(), amount_paid: r.paid.value.trim(), paid_date: Number(String(r.paid.value).replace(/\D/g, '')) > 0 ? paidDate.value : '' };
+    }) };
+    if (payload.items.some(function (i) { return !i.amount_due; })) { d.error({ message: 'Hãy nhập số phải thu cho mọi dòng.' }); return; }
+    busy(e.currentTarget, function () {
+      return call('dues.record', payload, rid).then(function (r) {
+        rid = newRid();
+        if (r.failed.length) { d.info('warn', r.message + ' Lỗi: ' + r.failed.map(function (f) { return (f.member_code || 'dòng ' + (f.index + 1)) + ' — ' + f.message; }).join('; ')); }
+        else { d.close(); toast(r.message); }
+        reload(DQ.page);
+      }).catch(function (er) { if (er.code !== 'NETWORK') rid = newRid(); d.error(er); });
+    });
+  } }));
+}
+function openDuesAdjust(x, reload) {
+  const dd = x.dues;
+  const d = openDialog('Điều chỉnh đoàn phí: ' + x.full_name, { modal: true });
+  const form = makeForm([
+    { name: 'amount_due', label: 'Số phải thu (VND)', inputmode: 'numeric', required: true },
+    { name: 'amount_paid', label: 'Số đã thu (VND)', inputmode: 'numeric', required: true },
+    { name: 'paid_date', label: 'Ngày thu', type: 'date' },
+    { name: 'note', label: 'Ghi chú', type: 'textarea', max: 500 },
+    { name: 'reason', label: 'Lý do điều chỉnh (bắt buộc)', type: 'textarea', required: true, max: 500 }
+  ], { amount_due: dd.amount_due, amount_paid: dd.amount_paid, paid_date: dd.paid_date, note: dd.note });
+  const hist = h('div');
+  append(d.body, [h('div', { class: 'grid2' }, form.el('amount_due'), form.el('amount_paid')), form.el('paid_date'), form.el('note'), form.el('reason'),
+    h('h3', { text: 'Lịch sử' }), hist]);
+  call('dues.history', { dues_id: dd.dues_id }).then(function (r) {
+    hist.appendChild(table([{ label: 'Lúc' }, { label: 'Hành động' }, { label: 'Phải thu' }, { label: 'Đã thu' }, { label: 'Người' }, { label: 'Lý do' }],
+      r.items.map(function (i) { return { cells: [fmtDT(i.at), { CREATE: 'Tạo', ADJUST: 'Điều chỉnh', VOID: 'Hủy' }[i.action] || i.action,
+        (i.old_due !== '' ? money(i.old_due) + ' → ' : '') + money(i.new_due), (i.old_paid !== '' ? money(i.old_paid) + ' → ' : '') + money(i.new_paid), i.actor, i.reason] }; })));
+  }).catch(function () { });
+  let rid = newRid();
+  function send(isVoid, btn) {
+    const v = form.get();
+    if (!v.reason) { form.showErrors({ reason: 'Vui lòng ghi lý do.' }); return; }
+    busy(btn, function () {
+      return call('dues.adjust', Object.assign(v, { dues_id: dd.dues_id, version: dd.version, void: isVoid }), rid).then(function (r) { d.close(); toast(r.message); reload(DQ.page); })
+        .catch(function (er) { if (er.code !== 'NETWORK') rid = newRid(); if (er.details) form.showErrors(er.details); d.error(er); });
+    });
+  }
+  d.footer.appendChild(h('button', { class: 'btn danger', text: 'Hủy ghi nhận (ghi nhầm)', onclick: function (e) { const b = e.currentTarget; confirmDialog('Hủy ghi nhận', 'Hủy ghi nhận này? Lịch sử vẫn được giữ lại.', 'Hủy ghi nhận', true).then(function (y) { if (y) send(true, b); }); } }));
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Đóng', onclick: d.close }));
+  d.footer.appendChild(h('button', { class: 'btn primary', text: 'Lưu điều chỉnh', onclick: function (e) { send(false, e.currentTarget); } }));
+}
+
+/* ============================ BÁO CÁO ============================ */
+function viewReports(main) {
+  clear(main);
+  main.appendChild(h('h1', { text: 'Báo cáo' }));
+  const unit = h('select', { id: 'r-unit' }); unitOptions(null, 'Tất cả đơn vị được xem').forEach(function (o) { unit.appendChild(h('option', { value: o[0], text: o[1] })); });
+  const out = h('div');
+  function exportBtn(label, payloadFn) {
+    return h('button', { class: 'btn', text: label, onclick: function (e) {
+      busy(e.currentTarget, function () { return call(payloadFn()[0], payloadFn()[1], newRid()).then(function (r) { downloadText(r.filename, r.csv); toast('Đã tải tệp ' + r.filename); }).catch(function (er) { toast(errorText(er), 'error'); }); });
+    } });
+  }
+  function load() {
+    clear(out).appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tổng hợp…'));
+    return call('report.byUnit', { unit_id: unit.value }).then(function (r) {
+      clear(out);
+      const keys = Object.keys(r.statusLabels);
+      const headers = [{ label: 'Đơn vị', title: true }, { label: 'Tổng', num: true }, { label: 'Nam', num: true }, { label: 'Nữ', num: true }, { label: 'Khác/chưa ghi', num: true }]
+        .concat(keys.map(function (k) { return { label: r.statusLabels[k], num: true }; }));
+      const rows = r.items.map(function (a) { return { cells: [a.unit, a.total, a.male, a.female, a.other].concat(keys.map(function (k) { return a.byStatus[k] || 0; })) }; });
+      rows.push({ cls: 'changed', cells: ['TỔNG CỘNG', r.total.total, r.total.male, r.total.female, r.total.other].concat(keys.map(function (k) { return r.total.byStatus[k] || 0; })) });
+      out.appendChild(table(headers, rows));
+    }).catch(function (e) { clear(out).appendChild(alertBox('error', errorText(e))); });
+  }
+  unit.addEventListener('change', load);
+  const from = periodSelects('rf', DQ.year, 1), to = periodSelects('rt', DQ.year, DQ.month);
+  append(main, [
+    h('div', { class: 'card' }, h('h2', { text: 'Thống kê đoàn viên theo đơn vị' }),
+      h('div', { class: 'toolbar' }, h('div', { class: 'field', style: 'flex:1 1 260px' }, h('label', { for: 'r-unit', text: 'Phạm vi' }), unit),
+        exportBtn('Tải CSV thống kê', function () { return ['export.report', { type: 'by_unit', unit_id: unit.value }]; }),
+        exportBtn('Tải CSV danh sách đoàn viên', function () { return ['export.members', { unit_id: unit.value }]; })), out),
+    h('div', { class: 'card' }, h('h2', { text: 'Tổng hợp đoàn phí theo khoảng thời gian' }),
+      h('div', { class: 'toolbar' },
+        h('div', { class: 'field' }, h('label', { for: 'rf-m', text: 'Từ tháng' }), h('div', { class: 'row' }, from.m, from.y)),
+        h('div', { class: 'field' }, h('label', { for: 'rt-m', text: 'Đến tháng' }), h('div', { class: 'row' }, to.m, to.y)),
+        exportBtn('Tải CSV đoàn phí', function () { return ['export.report', { type: 'dues', from: from.period(), to: to.period(), unit_id: unit.value }]; })))
+  ]);
+  return load();
+}
+
+/* ============================ NHẬP CSV ============================ */
+function templateCsv() {
+  const header = IMPORT_COLUMNS.map(function (c) { return c[1]; });
+  const ex = ['', '[MẪU] Nguyễn Văn A', '05/09/1990', 'Nam', 'CCCD', '001090000000', '0912000000', '', '', 'MA-DON-VI', '01/03/2015', '', 'Đang sinh hoạt', 'Xóa dòng mẫu này trước khi nhập'];
+  return '﻿' + [header, ex].map(function (r) { return r.map(function (v) { return /[",\n;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\r\n');
+}
+function openImport() {
+  const d = openDialog('Nhập danh sách đoàn viên từ tệp CSV', { wide: true, modal: true });
+  const file = h('input', { type: 'file', id: 'imp-file', accept: '.csv,text/csv' });
+  const step = h('div');
+  append(d.body, [
+    alertBox('info', 'Bước 1: Tải tệp mẫu, điền dữ liệu bằng Excel rồi lưu dạng "CSV UTF-8". Tối đa 1.000 dòng, 1 MB mỗi lần. Các dòng hợp lệ sẽ thành yêu cầu thêm mới chờ duyệt — không ghi đè hồ sơ có sẵn.'),
+    h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'btn', text: 'Tải tệp mẫu', onclick: function () { downloadText('mau-nhap-doan-vien.csv', templateCsv()); } })),
+    h('div', { class: 'field' }, h('label', { for: 'imp-file', text: 'Chọn tệp CSV' }), file), step]);
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Đóng', onclick: d.close }));
+  file.addEventListener('change', function () {
+    d.error(null); clear(step);
+    const f = file.files[0];
+    if (!f) return;
+    if (f.size > 1024 * 1024) { d.error({ message: 'Tệp lớn hơn 1 MB. Hãy chia thành nhiều tệp nhỏ.' }); return; }
+    const reader = new FileReader();
+    reader.onerror = function () { d.error({ message: 'Không đọc được tệp. Hãy lưu lại dạng CSV UTF-8 rồi thử lại.' }); };
+    reader.onload = function () {
+      const text = String(reader.result || '');
+      if (text.indexOf('�') >= 0) { d.error({ message: 'Tệp không phải mã UTF-8 nên tiếng Việt bị lỗi. Trong Excel chọn "Lưu dưới dạng" → "CSV UTF-8 (phân cách bằng dấu phẩy)".' }); return; }
+      const rows = parseCsv(text).filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });
+      if (rows.length < 2) { d.error({ message: 'Tệp không có dòng dữ liệu nào bên dưới dòng tiêu đề.' }); return; }
+      if (rows.length - 1 > 1000) { d.error({ message: 'Tệp có ' + (rows.length - 1) + ' dòng, vượt giới hạn 1.000 dòng. Hãy chia nhỏ.' }); return; }
+      mapStep(f.name, rows);
+    };
+    reader.readAsText(f, 'utf-8');
+  });
+  function mapStep(fileName, rows) {
+    const header = rows[0].map(function (x) { return String(x).trim(); });
+    const selects = {};
+    const grid = h('div', { class: 'grid3' });
+    IMPORT_COLUMNS.forEach(function (c) {
+      const s = h('select', { id: 'map-' + c[0] });
+      s.appendChild(h('option', { value: '', text: '— Không dùng —' }));
+      header.forEach(function (hd, i) { s.appendChild(h('option', { value: String(i), text: hd || ('Cột ' + (i + 1)) })); });
+      const guess = header.findIndex(function (hd) { return norm(hd) === norm(c[1]) || norm(hd) === c[0]; });
+      if (guess >= 0) s.value = String(guess);
+      selects[c[0]] = s;
+      grid.appendChild(h('div', { class: 'field' }, h('label', { for: 'map-' + c[0] }, c[1], c[0] === 'full_name' ? h('span', { class: 'req', text: ' *' }) : null), s));
+    });
+    const defUnit = h('select', { id: 'imp-unit' });
+    unitOptions(function (u) { return u.can_edit && u.status === 'active'; }, '— Không có (bắt buộc cột Mã đơn vị) —').forEach(function (o) { defUnit.appendChild(h('option', { value: o[0], text: o[1] })); });
+    const allowDup = h('input', { type: 'checkbox', id: 'imp-dup' });
+    const checkBtn = h('button', { class: 'btn primary', text: 'Bước 3: Kiểm tra dữ liệu' });
+    const preview = h('div');
+    append(clear(step), [h('h3', { text: 'Bước 2: Ghép cột trong tệp với trường dữ liệu (' + (rows.length - 1) + ' dòng)' }), grid,
+      h('div', { class: 'field' }, h('label', { for: 'imp-unit', text: 'Đơn vị mặc định (dùng khi dòng không có Mã đơn vị)' }), defUnit),
+      h('label', { style: 'display:flex;gap:8px;align-items:center;margin-bottom:12px' }, allowDup, 'Vẫn nhập các dòng trùng họ tên + ngày sinh với hồ sơ có sẵn (chỉ chọn khi chắc chắn là người khác nhau)'),
+      checkBtn, preview]);
+    function payload() {
+      if (!selects.full_name.value) throw new Error('Hãy chọn cột cho "Họ và tên".');
+      return {
+        file_name: fileName, default_unit_id: defUnit.value, allow_name_dob_dup: allowDup.checked,
+        rows: rows.slice(1).map(function (r, i) {
+          const o = { __row: i + 2 };
+          IMPORT_COLUMNS.forEach(function (c) { const idx = selects[c[0]].value; o[c[0]] = idx === '' ? '' : String(r[Number(idx)] === undefined ? '' : r[Number(idx)]).trim(); });
+          return o;
+        })
+      };
+    }
+    let rid = newRid();
+    checkBtn.addEventListener('click', function () {
+      let p; try { p = payload(); } catch (e) { d.error(e); return; }
+      d.error(null);
+      busy(checkBtn, function () {
+        return call('import.check', p).then(function (r) {
+          clear(preview);
+          const bad = r.rows.filter(function (x) { return !x.ok; });
+          append(preview, [h('h3', { text: 'Kết quả kiểm tra' }),
+            alertBox(bad.length ? 'warn' : 'ok', r.ok + '/' + r.total + ' dòng hợp lệ.' + (bad.length ? ' ' + bad.length + ' dòng lỗi sẽ KHÔNG được nhập — sửa trong tệp rồi nhập lại riêng các dòng đó.' : '')),
+            table([{ label: 'Dòng trong tệp' }, { label: 'Họ và tên', title: true }, { label: 'Kết quả' }],
+              r.rows.slice(0, 300).map(function (x) { return { cls: x.ok ? '' : 'changed', cells: [String(x.row), x.name || '', x.ok ? h('span', { class: 'tag ok', text: 'Hợp lệ' }) : h('div', null, x.errors.map(function (m) { return h('div', { class: 'err', style: 'color:var(--danger)', text: m }); }))] }; })),
+            r.rows.length > 300 ? h('p', { class: 'muted', text: 'Chỉ hiển thị 300 dòng đầu.' }) : null]);
+          if (r.ok) {
+            const commit = h('button', { class: 'btn ok big', text: 'Bước 4: Xác nhận nhập ' + r.ok + ' dòng hợp lệ (gửi duyệt)' });
+            commit.addEventListener('click', function () {
+              busy(commit, function () {
+                return call('import.commit', payload(), rid).then(function (res) {
+                  clear(step); clear(preview);
+                  append(step, [alertBox('ok', res.message + ' Mã lô: ' + res.job_id),
+                    res.report.length ? table([{ label: 'Dòng' }, { label: 'Lỗi' }], res.report.map(function (x) { return { cells: [String(x.row), x.errors.join('; ')] }; })) : null]);
+                  file.value = ''; rid = newRid(); refreshBadges();
+                }).catch(function (e) { if (e.code !== 'NETWORK') rid = newRid(); d.error(e); });
+              });
+            });
+            preview.appendChild(h('div', { class: 'row', style: 'margin-top:12px' }, commit));
+          }
+        }).catch(function (e) { d.error(e); });
+      });
+    });
+  }
+}
+
+/* ============================ QUẢN TRỊ ============================ */
+function viewAdmin(main, tab) {
+  tab = tab || 'units';
+  return call('admin.overview').then(function (ov) {
+    clear(main);
+    main.appendChild(h('h1', { text: 'Quản trị' }));
+    main.appendChild(h('div', { class: 'tabs', role: 'tablist' }, [['units', 'Đơn vị'], ['users', 'Người dùng & phân quyền'], ['settings', 'Cấu hình'], ['backup', 'Sao lưu'], ['ops', 'Vận hành & nhật ký']].map(function (t) {
+      return h('button', { role: 'tab', 'aria-selected': t[0] === tab ? 'true' : 'false', text: t[1], onclick: function () { go('admin', t[0]); } });
+    })));
+    const box = h('div'); main.appendChild(box);
+    return ({ units: adminUnits, users: adminUsers, settings: adminSettings, backup: adminBackup, ops: adminOps }[tab])(box, ov);
+  });
+}
+function levelName(ov, level) { return ov.levelNames[level - 1] || ('Cấp ' + level); }
+function adminUnits(box, ov) {
+  append(box, [h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'btn primary', text: '+ Thêm đơn vị', onclick: function () { unitForm(ov, null); } })),
+    table([{ label: 'Đơn vị', title: true }, { label: 'Mã' }, { label: 'Cấp' }, { label: 'Đoàn viên', num: true }, { label: 'Trạng thái' }],
+      ov.units.map(function (u) {
+        return { onclick: function () { unitForm(ov, u); }, cells: [h('span', null, h('span', { class: 'tree-indent', style: 'width:' + ((u.level - 1) * 18) + 'px' }), u.name), u.code, levelName(ov, u.level), u.member_count,
+          u.status === 'active' ? h('span', { class: 'tag ok', text: 'Đang hoạt động' }) : h('span', { class: 'tag', text: 'Ngừng hoạt động' })] };
+      }))]);
+}
+function unitForm(ov, u) {
+  const d = openDialog(u ? 'Sửa đơn vị: ' + u.name : 'Thêm đơn vị', { modal: true });
+  const parents = [['', '— Không có (cấp cao nhất) —']].concat(ov.units.filter(function (x) { return !u || x.unit_id !== u.unit_id; }).map(function (x) { return [x.unit_id, x.path]; }));
+  const form = makeForm([
+    { name: 'name', label: 'Tên đơn vị', required: true, max: 150 },
+    { name: 'code', label: 'Mã đơn vị', required: true, max: 30, hint: 'Chữ không dấu, số, dấu - _ . Dùng trong tệp nhập CSV.' },
+    { name: 'parent_id', label: 'Đơn vị cấp trên', type: 'select', options: parents },
+    { name: 'status', label: 'Trạng thái', type: 'select', options: [['active', 'Đang hoạt động'], ['inactive', 'Ngừng hoạt động']] },
+    { name: 'sort_order', label: 'Thứ tự hiển thị', inputmode: 'numeric', max: 6 }
+  ], u || { status: 'active' });
+  append(d.body, [form.el('name'), h('div', { class: 'grid2' }, form.el('code'), form.el('sort_order')), form.el('parent_id'), form.el('status')]);
+  let rid = newRid();
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Hủy bỏ', onclick: d.close }));
+  d.footer.appendChild(h('button', { class: 'btn primary', text: 'Lưu', onclick: function (e) {
+    const v = form.get(); if (u) { v.unit_id = u.unit_id; v.version = u.version; }
+    busy(e.currentTarget, function () {
+      return call('admin.unitSave', v, rid).then(function (r) { d.close(); toast(r.message); return call('me').then(function (me) { S.me = me; go('admin', 'units'); }); })
+        .catch(function (er) { if (er.code !== 'NETWORK') rid = newRid(); if (er.details) form.showErrors(er.details); d.error(er); });
+    });
+  } }));
+}
+function adminUsers(box, ov) {
+  append(box, [h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'btn primary', text: '+ Thêm người dùng', onclick: function () { userForm(ov, null); } })),
+    table([{ label: 'Người dùng', title: true }, { label: 'Email' }, { label: 'Quyền' }, { label: 'Trạng thái' }, { label: 'Đăng nhập gần nhất' }],
+      ov.users.map(function (u) {
+        return { onclick: function () { userForm(ov, u); }, cells: [u.full_name, u.email,
+          h('div', null, u.is_admin ? h('div', null, h('span', { class: 'tag info', text: 'Quản trị hệ thống' })) : null,
+            u.scopes.map(function (s) { return h('div', { style: 'font-size:14px', text: s.role_label + ' — ' + s.unit + (s.include_children ? ' (gồm cấp dưới)' : '') + (s.can_dues ? ' • đoàn phí' : '') }); })),
+          u.status === 'active' ? h('span', { class: 'tag ok', text: 'Hoạt động' }) : h('span', { class: 'tag danger', text: 'Đã khóa' }),
+          fmtDT(u.last_login_at)] };
+      }))]);
+}
+function userForm(ov, u) {
+  const d = openDialog(u ? 'Người dùng: ' + u.full_name : 'Thêm người dùng', { wide: true, modal: true });
+  const form = makeForm([
+    { name: 'full_name', label: 'Họ tên', required: true, max: 100 },
+    { name: 'email', label: 'Email đăng nhập', type: 'email', required: true, max: 120, hint: 'Mã đăng nhập sẽ được gửi tới email này.' },
+    { name: 'status', label: 'Trạng thái', type: 'select', options: [['active', 'Hoạt động'], ['locked', 'Khóa (chặn ngay mọi phiên)']] },
+    { name: 'is_admin', label: 'Là quản trị hệ thống (toàn quyền)', type: 'checkbox' }
+  ], u ? { full_name: u.full_name, email: u.email, status: u.status, is_admin: u.is_admin } : { status: 'active' });
+  append(d.body, [h('div', { class: 'grid2' }, form.el('full_name'), form.el('email')), h('div', { class: 'grid2' }, form.el('status'), form.el('is_admin'))]);
+  let rid = newRid();
+  const reload = function () { d.close(); go('admin', 'users'); };
+  if (u) {
+    const scopeBox = h('div');
+    scopeBox.appendChild(h('h3', { text: 'Phạm vi quyền theo đơn vị' }));
+    scopeBox.appendChild(table([{ label: 'Vai trò' }, { label: 'Đơn vị' }, { label: 'Gồm cấp dưới' }, { label: 'Đoàn phí' }, { label: '' }],
+      u.scopes.map(function (s) {
+        return { cells: [s.role_label, s.unit, s.include_children ? 'Có' : 'Không', s.can_dues ? 'Có' : '', h('button', { class: 'btn small danger', text: 'Thu hồi', onclick: function (e) {
+          const b = e.currentTarget;
+          busy(b, function () { return call('admin.scopeRemove', { scope_id: s.scope_id }, newRid()).then(function (r) { toast(r.message); reload(); }).catch(function (er) { d.error(er); }); });
+        } })] };
+      }), { empty: 'Chưa có phạm vi quyền. Người dùng sẽ không thấy dữ liệu nào.' }));
+    const sf = makeForm([
+      { name: 'unit_id', label: 'Đơn vị', type: 'select', options: [['', '— Chọn —']].concat(ov.units.map(function (x) { return [x.unit_id, x.path]; })) },
+      { name: 'role', label: 'Vai trò', type: 'select', options: [['', '— Chọn —'], ['officer', 'Cán bộ đơn vị'], ['approver', 'Người phê duyệt'], ['viewer', 'Người xem']] },
+      { name: 'include_children', label: 'Áp dụng cho cả đơn vị cấp dưới', type: 'checkbox', default: true },
+      { name: 'can_dues', label: 'Được ghi nhận đoàn phí (chỉ cán bộ)', type: 'checkbox' }
+    ]);
+    scopeBox.appendChild(h('div', { class: 'card', style: 'margin-top:8px' }, h('div', { class: 'grid2' }, sf.el('unit_id'), sf.el('role')), h('div', { class: 'grid2' }, sf.el('include_children'), sf.el('can_dues')),
+      h('button', { class: 'btn', text: '+ Cấp quyền', onclick: function (e) {
+        const v = sf.get(); v.user_id = u.user_id;
+        busy(e.currentTarget, function () { return call('admin.scopeAdd', v, newRid()).then(function (r) { toast(r.message); reload(); }).catch(function (er) { if (er.details) sf.showErrors(er.details); d.error(er); }); });
+      } })));
+    scopeBox.appendChild(h('p', null, 'Phiên đang đăng nhập: ' + u.active_sessions + ' ',
+      u.active_sessions ? h('button', { class: 'btn small', text: 'Thu hồi tất cả phiên', onclick: function (e) {
+        busy(e.currentTarget, function () { return call('admin.revokeSessions', { user_id: u.user_id }, newRid()).then(function (r) { toast(r.message); reload(); }).catch(function (er) { d.error(er); }); });
+      } }) : null));
+    d.body.appendChild(scopeBox);
+  }
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Đóng', onclick: d.close }));
+  d.footer.appendChild(h('button', { class: 'btn primary', text: 'Lưu thông tin người dùng', onclick: function (e) {
+    const v = form.get(); if (u) v.user_id = u.user_id;
+    busy(e.currentTarget, function () {
+      return call('admin.userSave', v, rid).then(function (r) { toast(r.message); if (!u) { d.close(); go('admin', 'users'); } else reload(); })
+        .catch(function (er) { if (er.code !== 'NETWORK') rid = newRid(); if (er.details) form.showErrors(er.details); d.error(er); });
+    });
+  } }));
+}
+function adminSettings(box, ov) {
+  const defs = ov.settings.map(function (s) { return { name: s.key, label: s.description || s.key, hint: 'Mã: ' + s.key, max: 500 }; });
+  const vals = {}; ov.settings.forEach(function (s) { vals[s.key] = s.value; });
+  const form = makeForm(defs, vals);
+  const msg = h('div');
+  let rid = newRid();
+  append(box, [h('div', { class: 'card' }, msg, defs.map(function (x) { return form.el(x.name); }),
+    h('button', { class: 'btn primary', text: 'Lưu cấu hình', onclick: function (e) {
+      clear(msg);
+      busy(e.currentTarget, function () {
+        return call('admin.settingsSave', { values: form.get() }, rid).then(function (r) { rid = newRid(); toast(r.message); return call('me').then(function (me) { S.me = me; }); })
+          .catch(function (er) { if (er.code !== 'NETWORK') rid = newRid(); if (er.details) form.showErrors(er.details); msg.appendChild(alertBox('error', errorText(er))); });
+      });
+    } }))]);
+}
+function adminBackup(box) {
+  const list = h('div');
+  box.appendChild(h('div', { class: 'card' },
+    h('p', { text: 'Bản sao lưu là bản sao toàn bộ bảng tính, lưu trong thư mục Google Drive riêng của chủ sở hữu phần mềm (không chia sẻ công khai). Lịch sao lưu tự động hằng ngày do người vận hành cài trong Apps Script.' }),
+    h('button', { class: 'btn primary', text: 'Sao lưu ngay', onclick: function (e) {
+      busy(e.currentTarget, function () { return call('admin.backupNow', {}, newRid()).then(function (r) { toast(r.message); go('admin', 'backup'); }).catch(function (er) { toast(errorText(er), 'error'); }); });
+    } })));
+  box.appendChild(list);
+  list.appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tải danh sách…'));
+  return call('admin.backupList').then(function (r) {
+    clear(list);
+    list.appendChild(h('p', { class: 'muted', text: 'Sao lưu gần nhất: ' + (fmtDT(r.lastBackupAt) || 'chưa có') }));
+    list.appendChild(table([{ label: 'Tên bản sao lưu', title: true }, { label: 'Tạo lúc' }, { label: '' }], r.items.map(function (b) {
+      return { cells: [b.name, fmtDT(b.created_at), h('button', { class: 'btn small danger', text: 'Khôi phục…', onclick: function () { restoreDialog(b); } })] };
+    }), { empty: 'Chưa có bản sao lưu nào.' }));
+  });
+}
+function restoreDialog(b) {
+  const d = openDialog('Khôi phục dữ liệu', { modal: true });
+  const conf = h('input', { id: 'rs-conf', autocomplete: 'off' });
+  append(d.body, [alertBox('warn', 'Toàn bộ dữ liệu nghiệp vụ hiện tại sẽ được thay bằng dữ liệu của bản: ' + b.name + '. Trước khi khôi phục, hệ thống tự tạo một bản sao hiện trạng để có thể quay lại. Phiên đăng nhập hiện tại được giữ nguyên.'),
+    h('div', { class: 'field' }, h('label', { for: 'rs-conf', text: 'Gõ chữ KHOI PHUC để xác nhận' }), conf)]);
+  d.footer.appendChild(h('button', { class: 'btn', text: 'Hủy bỏ', onclick: d.close }));
+  d.footer.appendChild(h('button', { class: 'btn danger', text: 'Khôi phục', onclick: function (e) {
+    busy(e.currentTarget, function () { return call('admin.restore', { file_id: b.file_id, confirm: conf.value }, newRid()).then(function (r) { d.close(); toast(r.message); go('admin', 'backup'); }).catch(function (er) { d.error(er); }); });
+  } }));
+}
+function adminOps(box, ov) {
+  box.appendChild(h('div', { class: 'card' }, h('h2', { text: 'Tình trạng vận hành' }),
+    h('p', { text: 'Hạn mức gửi email còn lại hôm nay: ' + (ov.mailQuota === null ? 'không xác định' : ov.mailQuota) + ' (dùng để gửi mã đăng nhập).' }),
+    ov.pendingOps.length ? [alertBox('warn', 'Có ' + ov.pendingOps.length + ' thao tác bị gián đoạn (ví dụ do mất kết nối hoặc hết thời gian xử lý).'),
+      h('button', { class: 'btn primary', text: 'Phục hồi thao tác dở dang', onclick: function (e) {
+        busy(e.currentTarget, function () { return call('admin.recover', {}, newRid()).then(function (r) {
+          toast('Đã xử lý ' + r.items.length + ' thao tác: ' + r.items.map(function (i) { return i.action + ' → ' + i.status; }).join(', ')); go('admin', 'ops');
+        }).catch(function (er) { toast(errorText(er), 'error'); }); });
+      } })] : alertBox('ok', 'Không có thao tác nào bị gián đoạn.')));
+  const q = h('input', { id: 'log-q', type: 'search', placeholder: 'Email, hành động, mã…' });
+  const res = h('select', { id: 'log-r' }); [['', 'Mọi kết quả'], ['OK', 'Thành công'], ['DENIED', 'Bị từ chối'], ['ERROR', 'Lỗi']].forEach(function (o) { res.appendChild(h('option', { value: o[0], text: o[1] })); });
+  const out = h('div');
+  function load(page) {
+    return call('admin.audit', { q: q.value, result: res.value, page: page || 1, pageSize: 50 }).then(function (r) {
+      clear(out).appendChild(table([{ label: 'Thời gian' }, { label: 'Người thao tác' }, { label: 'Hành động', title: true }, { label: 'Đối tượng' }, { label: 'Kết quả' }, { label: 'Chi tiết' }],
+        r.items.map(function (l) { return { cells: [fmtDT(l.at), l.actor, l.action, (l.object_type || '') + ' ' + (l.object_id || ''), statusTag(l.result === 'OK' ? 'APPROVED' : 'RETURNED', l.result), l.detail] }; })));
+      out.appendChild(pager(r, load));
+    }).catch(function (e) { clear(out).appendChild(alertBox('error', errorText(e))); });
+  }
+  res.addEventListener('change', function () { load(1); });
+  q.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(1); });
+  box.appendChild(h('div', { class: 'card' }, h('h2', { text: 'Nhật ký thao tác' }),
+    h('div', { class: 'toolbar' }, h('div', { class: 'field', style: 'flex:2 1 220px' }, h('label', { for: 'log-q', text: 'Tìm' }), q),
+      h('div', { class: 'field', style: 'flex:1 1 160px' }, h('label', { for: 'log-r', text: 'Kết quả' }), res), h('button', { class: 'btn', text: 'Tìm', onclick: function () { load(1); } })), out));
+  return load(1);
+}
+
+/* ============================ KHỞI ĐỘNG ============================ */
+(function boot() {
+  S.token = store.get();
+  if (S.token) startApp(); else renderLogin();
+})();
+</script>

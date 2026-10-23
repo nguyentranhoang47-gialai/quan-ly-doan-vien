@@ -1,0 +1,7 @@
+node_modules/
+tests/tmp-*
+*.log
+.DS_Store
+# Không bao giờ đưa dữ liệu thật lên GitHub
+*.xlsx
+export-*.csv

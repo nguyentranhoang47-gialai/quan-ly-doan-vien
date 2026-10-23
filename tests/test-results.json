@@ -1,0 +1,1024 @@
+{
+  "ranAt": "2026-10-23T13:35:42.669Z",
+  "node": "v22.22.0",
+  "total": 21,
+  "passed": 21,
+  "results": [
+    {
+      "name": "Thiết lập: setupSystem tạo đủ sheet, chạy lại không mất dữ liệu, chặn khi không phải chủ sở hữu",
+      "ok": true,
+      "ms": 46,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Có sheet SETTINGS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet UNITS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet USERS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet USER_SCOPES"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet MEMBERS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet CHANGE_REQUESTS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet APPROVAL_ACTIONS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet TRANSFER_REQUESTS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet MEMBERSHIP_HISTORY"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet DUES"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet AUDIT_LOGS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet IMPORT_JOBS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet OPERATIONS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet SESSIONS"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet AUTH_OTP"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet DUES_HISTORY"
+        },
+        {
+          "ok": true,
+          "msg": "Có sheet HUONG_DAN"
+        },
+        {
+          "ok": true,
+          "msg": "Quản trị đầu tiên tạo từ Script Property ADMIN_EMAIL"
+        },
+        {
+          "ok": true,
+          "msg": "Tạo khóa AUTH_PEPPER"
+        },
+        {
+          "ok": true,
+          "msg": "Chạy lại setup không xóa đơn vị đã tạo"
+        },
+        {
+          "ok": true,
+          "msg": "Chạy lại setup không đổi khóa bí mật (phiên cũ vẫn hợp lệ)"
+        },
+        {
+          "ok": true,
+          "msg": "Không tự thêm quản trị mới khi đã có quản trị"
+        },
+        {
+          "ok": true,
+          "msg": "setupSystem bị từ chối khi gọi không phải từ chủ sở hữu (getActiveUser rỗng)"
+        },
+        {
+          "ok": true,
+          "msg": "installDailyBackup bị từ chối với người khác chủ sở hữu"
+        },
+        {
+          "ok": true,
+          "msg": "Nâng cấp schema: thêm cột, giữ dữ liệu cũ"
+        }
+      ]
+    },
+    {
+      "name": "Đăng nhập: email chưa được cấp quyền không đăng nhập được, thông báo không lộ email",
+      "ok": true,
+      "ms": 8,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Thông báo giống nhau cho email có và không có quyền"
+        },
+        {
+          "ok": true,
+          "msg": "Không gửi email cho địa chỉ chưa được cấp quyền"
+        },
+        {
+          "ok": true,
+          "msg": "Xác minh OTP cho email lạ bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "Không lưu OTP dạng rõ (chỉ có mã băm 64 hex)"
+        },
+        {
+          "ok": true,
+          "msg": "Bảng OTP không chứa email dạng rõ"
+        }
+      ]
+    },
+    {
+      "name": "Đăng nhập: OTP sai, hết hạn, dùng lại, quá số lần thử đều bị từ chối",
+      "ok": true,
+      "ms": 21,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "OTP sai bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "OTP đúng (email khác hoa/thường) đăng nhập được, token 256 bit"
+        },
+        {
+          "ok": true,
+          "msg": "OTP đã dùng không dùng lại được"
+        },
+        {
+          "ok": true,
+          "msg": "OTP quá 5 phút bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "Sau 5 lần sai, mã đúng cũng bị khóa"
+        },
+        {
+          "ok": true,
+          "msg": "Mã cũ vô hiệu khi đã xin mã mới"
+        },
+        {
+          "ok": true,
+          "msg": "Không ghi OTP/token vào nhật ký"
+        },
+        {
+          "ok": true,
+          "msg": "Bảng phiên chỉ lưu mã băm token"
+        }
+      ]
+    },
+    {
+      "name": "Đăng nhập: giới hạn tần suất gửi mã theo email và toàn hệ thống",
+      "ok": true,
+      "ms": 60,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Tối đa 3 lần gửi / email / 15 phút"
+        },
+        {
+          "ok": true,
+          "msg": "Email không tồn tại cũng bị giới hạn y hệt (không lộ thông tin)"
+        },
+        {
+          "ok": true,
+          "msg": "Giới hạn tổng số yêu cầu gửi mã toàn hệ thống mỗi giờ"
+        },
+        {
+          "ok": true,
+          "msg": "Hết hạn mức email: thông báo rõ cách xử lý"
+        }
+      ]
+    },
+    {
+      "name": "Phiên: khóa tài khoản / thu hồi quyền có tác dụng ngay với phiên đang dùng; đăng xuất; token giả",
+      "ok": true,
+      "ms": 88,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Cán bộ A đang dùng bình thường"
+        },
+        {
+          "ok": true,
+          "msg": "Sau khi khóa, phiên đang mở bị từ chối ngay"
+        },
+        {
+          "ok": true,
+          "msg": "Tài khoản bị khóa không nhận được mã mới"
+        },
+        {
+          "ok": true,
+          "msg": "Thu hồi phạm vi: không còn thấy hồ sơ đơn vị B"
+        },
+        {
+          "ok": true,
+          "msg": "Token sau đăng xuất bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "Token giả bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "Không có token bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "Phiên hết hạn sau 60 phút không thao tác"
+        },
+        {
+          "ok": true,
+          "msg": "Gửi email/role/is_admin giả trong payload không nâng quyền"
+        },
+        {
+          "ok": true,
+          "msg": "Không gọi được hàm nội bộ qua api()"
+        }
+      ]
+    },
+    {
+      "name": "Phân quyền: đơn vị A không đọc/sửa được dữ liệu đơn vị B khi đổi ID",
+      "ok": true,
+      "ms": 98,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Không xem chi tiết hồ sơ B"
+        },
+        {
+          "ok": true,
+          "msg": "Lọc theo unit_id B trả về rỗng"
+        },
+        {
+          "ok": true,
+          "msg": "Danh sách không lẫn hồ sơ B"
+        },
+        {
+          "ok": true,
+          "msg": "Tìm theo tên không lộ hồ sơ B"
+        },
+        {
+          "ok": true,
+          "msg": "Không tạo hồ sơ vào đơn vị B"
+        },
+        {
+          "ok": true,
+          "msg": "Không sửa hồ sơ B"
+        },
+        {
+          "ok": true,
+          "msg": "Người duyệt A không duyệt được yêu cầu của B"
+        },
+        {
+          "ok": true,
+          "msg": "Người duyệt A không xem được yêu cầu của B"
+        },
+        {
+          "ok": true,
+          "msg": "Hộp chờ duyệt của A không có yêu cầu B"
+        },
+        {
+          "ok": true,
+          "msg": "Không ghi đoàn phí cho hồ sơ B"
+        },
+        {
+          "ok": true,
+          "msg": "Không lập chuyển sinh hoạt cho hồ sơ B"
+        },
+        {
+          "ok": true,
+          "msg": "Xuất CSV với unit_id B không có dữ liệu"
+        },
+        {
+          "ok": true,
+          "msg": "Các lần truy cập trái phép được ghi nhật ký DENIED"
+        },
+        {
+          "ok": true,
+          "msg": "Người nhiều đơn vị thấy được đơn vị B (quyền xem)"
+        },
+        {
+          "ok": true,
+          "msg": "nhưng không ghi được vào B"
+        },
+        {
+          "ok": true,
+          "msg": "và ghi được vào A1 (officer A1)"
+        },
+        {
+          "ok": true,
+          "msg": "không ghi được vào A (cấp trên của A1)"
+        },
+        {
+          "ok": true,
+          "msg": "Không phải quản trị không vào được Quản trị"
+        }
+      ]
+    },
+    {
+      "name": "Người xem: không ghi được dữ liệu, trường nhạy cảm bị che",
+      "ok": true,
+      "ms": 83,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Số giấy tờ bị che: ••••••••2345"
+        },
+        {
+          "ok": true,
+          "msg": "Địa chỉ bị ẩn với người xem"
+        },
+        {
+          "ok": true,
+          "msg": "Không tạo hồ sơ"
+        },
+        {
+          "ok": true,
+          "msg": "Không lưu trữ hồ sơ"
+        },
+        {
+          "ok": true,
+          "msg": "Không ghi đoàn phí"
+        },
+        {
+          "ok": true,
+          "msg": "Không chuyển sinh hoạt"
+        },
+        {
+          "ok": true,
+          "msg": "Không nhập CSV"
+        },
+        {
+          "ok": true,
+          "msg": "Người xem không tra cứu theo số giấy tờ"
+        },
+        {
+          "ok": true,
+          "msg": "Xuất CSV của người xem cũng bị che"
+        }
+      ]
+    },
+    {
+      "name": "Phê duyệt: chưa duyệt thì dữ liệu chính thức không đổi; không duyệt hai lần; không tự duyệt",
+      "ok": true,
+      "ms": 95,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Lưu nháp"
+        },
+        {
+          "ok": true,
+          "msg": "Nháp không đổi dữ liệu chính thức"
+        },
+        {
+          "ok": true,
+          "msg": "Chờ duyệt: dữ liệu chính thức chưa đổi"
+        },
+        {
+          "ok": true,
+          "msg": "Màn hình duyệt có giá trị cũ và mới"
+        },
+        {
+          "ok": true,
+          "msg": "Trả lại bắt buộc ghi lý do"
+        },
+        {
+          "ok": true,
+          "msg": "Người lập thấy yêu cầu bị trả lại"
+        },
+        {
+          "ok": true,
+          "msg": "Sau duyệt: cập nhật chính thức, tăng phiên bản"
+        },
+        {
+          "ok": true,
+          "msg": "Ghi người duyệt và thời gian duyệt"
+        },
+        {
+          "ok": true,
+          "msg": "Không duyệt hai lần"
+        },
+        {
+          "ok": true,
+          "msg": "Mặc định quản trị không tự duyệt yêu cầu của mình"
+        },
+        {
+          "ok": true,
+          "msg": "Khi bật cấu hình ngoại lệ thì quản trị tự duyệt được"
+        },
+        {
+          "ok": true,
+          "msg": "Tự duyệt có nhật ký riêng SELF_APPROVE"
+        },
+        {
+          "ok": true,
+          "msg": "Cán bộ không có hộp chờ duyệt"
+        },
+        {
+          "ok": true,
+          "msg": "Cán bộ không duyệt được"
+        },
+        {
+          "ok": true,
+          "msg": "Hồ sơ lưu trữ không hiện ở danh sách mặc định"
+        },
+        {
+          "ok": true,
+          "msg": "Vẫn xem được trong mục đã lưu trữ"
+        },
+        {
+          "ok": true,
+          "msg": "Không xóa vật lý"
+        }
+      ]
+    },
+    {
+      "name": "Xung đột: hai người cùng sửa một hồ sơ nhận cảnh báo, không ghi đè âm thầm",
+      "ok": true,
+      "ms": 49,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Người thứ hai nhận cảnh báo: đang có yêu cầu khác chờ duyệt"
+        },
+        {
+          "ok": true,
+          "msg": "Biểu mẫu mở từ phiên bản cũ bị chặn khi gửi (xung đột phiên bản)"
+        },
+        {
+          "ok": true,
+          "msg": "Dữ liệu của người 1 không bị ghi đè"
+        }
+      ]
+    },
+    {
+      "name": "Chống lặp: gửi lại cùng request_id không tạo bản ghi trùng",
+      "ok": true,
+      "ms": 55,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Trả lại kết quả cũ, không tạo mới"
+        },
+        {
+          "ok": true,
+          "msg": "Chỉ có 1 yêu cầu"
+        },
+        {
+          "ok": true,
+          "msg": "Bấm duyệt lặp (cùng request_id) không xử lý lại"
+        },
+        {
+          "ok": true,
+          "msg": "Chỉ 1 hồ sơ được tạo"
+        },
+        {
+          "ok": true,
+          "msg": "Ghi đoàn phí lặp chỉ 1 bản ghi"
+        },
+        {
+          "ok": true,
+          "msg": "Gửi lại lô nhập không tạo trùng"
+        },
+        {
+          "ok": true,
+          "msg": "Nhập lại cùng tệp với mã thao tác mới: dòng trùng bị báo lỗi, không tạo thêm"
+        },
+        {
+          "ok": true,
+          "msg": "Dùng lại request_id cho hành động khác bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "Thao tác ghi thiếu request_id bị từ chối"
+        }
+      ]
+    },
+    {
+      "name": "Chuyển sinh hoạt: giữ mã, giữ lịch sử, đổi quyền xem theo đơn vị mới, chặn trường hợp sai",
+      "ok": true,
+      "ms": 69,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Không chuyển đến chính đơn vị hiện tại"
+        },
+        {
+          "ok": true,
+          "msg": "Không chuyển đến đơn vị ngừng hoạt động"
+        },
+        {
+          "ok": true,
+          "msg": "Bắt buộc lý do"
+        },
+        {
+          "ok": true,
+          "msg": "Không có hai yêu cầu chuyển đang xử lý"
+        },
+        {
+          "ok": true,
+          "msg": "Chưa xác nhận: đơn vị chính thức chưa đổi"
+        },
+        {
+          "ok": true,
+          "msg": "Đơn vị đi không tự xác nhận được"
+        },
+        {
+          "ok": true,
+          "msg": "Đơn vị đến thấy yêu cầu chờ xác nhận"
+        },
+        {
+          "ok": true,
+          "msg": "Trước khi hoàn tất, đơn vị đến chưa xem được hồ sơ"
+        },
+        {
+          "ok": true,
+          "msg": "Hoàn tất: đổi đơn vị, giữ nguyên mã đoàn viên"
+        },
+        {
+          "ok": true,
+          "msg": "Lịch sử đầy đủ: JOIN,TRANSFER_OUT,TRANSFER_IN"
+        },
+        {
+          "ok": true,
+          "msg": "Đơn vị cũ không còn xem được"
+        },
+        {
+          "ok": true,
+          "msg": "Đơn vị mới xem được"
+        },
+        {
+          "ok": true,
+          "msg": "Màn hình chi tiết có lịch sử đơn vị"
+        },
+        {
+          "ok": true,
+          "msg": "Không xác nhận lại lần hai"
+        },
+        {
+          "ok": true,
+          "msg": "Từ chối bắt buộc lý do"
+        },
+        {
+          "ok": true,
+          "msg": "Đơn vị đến không hủy thay đơn vị đi"
+        },
+        {
+          "ok": true,
+          "msg": "Từ chối/hủy không đổi đơn vị"
+        }
+      ]
+    },
+    {
+      "name": "Phục hồi: lỗi giữa chừng được phát hiện và phục hồi không tạo trùng",
+      "ok": true,
+      "ms": 63,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Thao tác bị gián đoạn trả lỗi"
+        },
+        {
+          "ok": true,
+          "msg": "Nhật ký thao tác còn trạng thái STARTED"
+        },
+        {
+          "ok": true,
+          "msg": "Trạng thái dở dang: đã có hồ sơ nhưng yêu cầu chưa APPROVED"
+        },
+        {
+          "ok": true,
+          "msg": "Tổng quan quản trị cảnh báo thao tác gián đoạn"
+        },
+        {
+          "ok": true,
+          "msg": "Phục hồi thành công"
+        },
+        {
+          "ok": true,
+          "msg": "Yêu cầu được hoàn tất"
+        },
+        {
+          "ok": true,
+          "msg": "Không tạo trùng hồ sơ"
+        },
+        {
+          "ok": true,
+          "msg": "Không trùng lịch sử"
+        },
+        {
+          "ok": true,
+          "msg": "Xác nhận chuyển bị gián đoạn"
+        },
+        {
+          "ok": true,
+          "msg": "Chuyển sinh hoạt được hoàn tất khi phục hồi"
+        },
+        {
+          "ok": true,
+          "msg": "Lịch sử chuyển đủ 2 dòng, không trùng"
+        },
+        {
+          "ok": true,
+          "msg": "Chạy phục hồi lần nữa không còn gì để xử lý"
+        }
+      ]
+    },
+    {
+      "name": "Nhập CSV: giữ số 0 đầu, báo lỗi đúng dòng, kiểm tra lại phía máy chủ, theo quy trình duyệt",
+      "ok": true,
+      "ms": 52,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Lỗi đúng dòng 3,4,5,6,7,8 — thực tế: 3,4,5,6,7,8"
+        },
+        {
+          "ok": true,
+          "msg": "Thông báo lỗi nêu rõ trường và cách sửa"
+        },
+        {
+          "ok": true,
+          "msg": "Dòng thuộc đơn vị không có quyền bị chặn"
+        },
+        {
+          "ok": true,
+          "msg": "Bước kiểm tra không ghi dữ liệu"
+        },
+        {
+          "ok": true,
+          "msg": "Chỉ nhập dòng hợp lệ (2), báo 6 dòng lỗi"
+        },
+        {
+          "ok": true,
+          "msg": "Dữ liệu nhập chưa vào hồ sơ chính thức khi chưa duyệt"
+        },
+        {
+          "ok": true,
+          "msg": "Các dòng nhập thành yêu cầu chờ duyệt"
+        },
+        {
+          "ok": true,
+          "msg": "Giá trị trong Sheets giữ số 0 đầu (kiểu văn bản)"
+        },
+        {
+          "ok": true,
+          "msg": "Nội dung \"=1+1\" lưu dạng văn bản, không thành công thức"
+        },
+        {
+          "ok": true,
+          "msg": "Số +84… giữ nguyên"
+        },
+        {
+          "ok": true,
+          "msg": "Xuất CSV: ô bắt đầu bằng \"=\" được vô hiệu hóa bằng dấu '"
+        },
+        {
+          "ok": true,
+          "msg": "CSV có BOM UTF-8 để Excel đọc đúng tiếng Việt"
+        },
+        {
+          "ok": true,
+          "msg": "CSV giữ số 0 đầu và ngày dd/MM/yyyy"
+        },
+        {
+          "ok": true,
+          "msg": "Giới hạn 1000 dòng mỗi lần nhập"
+        }
+      ]
+    },
+    {
+      "name": "Dữ liệu HTML/ký tự đặc biệt không gây thực thi phía máy chủ; ngày không lệch múi giờ",
+      "ok": true,
+      "ms": 55,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Tên chứa thẻ HTML bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "Ghi chú lưu nguyên văn (giao diện hiển thị bằng textContent — xem kiểm thử giao diện)"
+        },
+        {
+          "ok": true,
+          "msg": "Ngày 31/12/1999 lưu đúng 1999-12-31 (chuỗi, không lệch múi giờ)"
+        },
+        {
+          "ok": true,
+          "msg": "Ngày 30/02 bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "Ngày sinh trong tương lai bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "CCCD phải 12 số"
+        },
+        {
+          "ok": true,
+          "msg": "Mã đoàn viên không trùng"
+        },
+        {
+          "ok": true,
+          "msg": "Mã tự sinh khi để trống: DV000002"
+        },
+        {
+          "ok": true,
+          "msg": "Tìm \"nguyen van anh\" thấy \"Nguyễn Văn Ánh\""
+        },
+        {
+          "ok": true,
+          "msg": "Tìm không phân biệt hoa thường"
+        },
+        {
+          "ok": true,
+          "msg": "Tìm theo một phần số điện thoại"
+        },
+        {
+          "ok": true,
+          "msg": "Cán bộ tìm theo số giấy tờ (khớp chính xác)"
+        }
+      ]
+    },
+    {
+      "name": "Đoàn phí: chống ghi trùng, điều chỉnh có lý do + lịch sử, thống kê đúng, phân quyền ghi",
+      "ok": true,
+      "ms": 60,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Ghi nhận cá nhân"
+        },
+        {
+          "ok": true,
+          "msg": "Tiền lưu số nguyên VND (\"50.000\" → 50000)"
+        },
+        {
+          "ok": true,
+          "msg": "Không ghi trùng cùng kỳ"
+        },
+        {
+          "ok": true,
+          "msg": "Cán bộ không có can_dues không ghi được"
+        },
+        {
+          "ok": true,
+          "msg": "Số tiền âm bị từ chối"
+        },
+        {
+          "ok": true,
+          "msg": "Điều chỉnh bắt buộc lý do"
+        },
+        {
+          "ok": true,
+          "msg": "Điều chỉnh dựa trên phiên bản cũ bị chặn"
+        },
+        {
+          "ok": true,
+          "msg": "Lịch sử điều chỉnh có giá trị cũ/mới, lý do"
+        },
+        {
+          "ok": true,
+          "msg": "Thống kê phải thu/đã thu/còn thiếu"
+        },
+        {
+          "ok": true,
+          "msg": "Cán bộ A chỉ thấy tổng của phạm vi A"
+        },
+        {
+          "ok": true,
+          "msg": "Tổng còn thiếu toàn hệ thống = 30.000"
+        },
+        {
+          "ok": true,
+          "msg": "Lọc theo tình trạng thu một phần"
+        },
+        {
+          "ok": true,
+          "msg": "Xuất CSV đoàn phí đúng phạm vi"
+        },
+        {
+          "ok": true,
+          "msg": "Sau khi hủy ghi nhầm có thể ghi lại"
+        }
+      ]
+    },
+    {
+      "name": "Báo cáo và xuất dữ liệu đúng phạm vi quyền",
+      "ok": true,
+      "ms": 45,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Thống kê của A chỉ gồm A"
+        },
+        {
+          "ok": true,
+          "msg": "Quản trị thấy toàn hệ thống, đếm theo giới tính đúng"
+        },
+        {
+          "ok": true,
+          "msg": "CSV thống kê của B không có A"
+        },
+        {
+          "ok": true,
+          "msg": "Chọn được cột xuất"
+        },
+        {
+          "ok": true,
+          "msg": "Xuất dữ liệu được ghi nhật ký"
+        },
+        {
+          "ok": true,
+          "msg": "Tổng quan theo phạm vi"
+        }
+      ]
+    },
+    {
+      "name": "Quản trị: cây đơn vị chống vòng lặp, không ngừng đơn vị còn đoàn viên, luôn còn quản trị",
+      "ok": true,
+      "ms": 52,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Không cho đơn vị con làm cấp trên"
+        },
+        {
+          "ok": true,
+          "msg": "Không ngừng đơn vị còn đoàn viên"
+        },
+        {
+          "ok": true,
+          "msg": "Mã đơn vị không trùng (không phân biệt hoa thường)"
+        },
+        {
+          "ok": true,
+          "msg": "Không tự khóa mình"
+        },
+        {
+          "ok": true,
+          "msg": "Cấp đơn vị tự tính theo cây (A1 là cấp 3)"
+        },
+        {
+          "ok": true,
+          "msg": "Không sửa được tham số ngoài danh sách cho phép"
+        },
+        {
+          "ok": true,
+          "msg": "Xem nhật ký thao tác"
+        }
+      ]
+    },
+    {
+      "name": "Sao lưu và khôi phục trên dữ liệu thử",
+      "ok": true,
+      "ms": 72,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Tạo bản sao lưu trong thư mục riêng"
+        },
+        {
+          "ok": true,
+          "msg": "Có 3 hồ sơ trước khi khôi phục"
+        },
+        {
+          "ok": true,
+          "msg": "Khôi phục bắt buộc gõ xác nhận"
+        },
+        {
+          "ok": true,
+          "msg": "Không phải quản trị không khôi phục được"
+        },
+        {
+          "ok": true,
+          "msg": "Kiểm tra cấu trúc trước khi khôi phục"
+        },
+        {
+          "ok": true,
+          "msg": "Dữ liệu trở về thời điểm sao lưu"
+        },
+        {
+          "ok": true,
+          "msg": "Tạo bản sao hiện trạng trước khi khôi phục"
+        },
+        {
+          "ok": true,
+          "msg": "Phiên đăng nhập hiện tại vẫn hoạt động sau khôi phục"
+        },
+        {
+          "ok": true,
+          "msg": "Sau khôi phục vẫn giữ số 0 đầu"
+        },
+        {
+          "ok": true,
+          "msg": "Tác vụ hằng ngày không chạy lại trong 20 giờ (chống lạm dụng)"
+        }
+      ]
+    },
+    {
+      "name": "Hiệu năng giả lập: 5.000 hồ sơ — đo thời gian xử lý logic và số lần gọi Sheets",
+      "ok": true,
+      "ms": 2228,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Đếm đủ 5.000 hồ sơ"
+        },
+        {
+          "ok": true,
+          "msg": "Nhập 1.000 dòng thành công"
+        },
+        {
+          "ok": true,
+          "msg": "Nhập theo lô: ghi CHANGE_REQUESTS bằng ít lần setValues (2)"
+        },
+        {
+          "ok": true,
+          "msg": "Duyệt hàng loạt 50 yêu cầu"
+        },
+        {
+          "ok": true,
+          "msg": "Số liệu: {\"list_page1_ms\":167,\"search_no_accent_ms\":126,\"import_check_1000_ms\":171,\"import_commit_1000_ms\":244,\"import_commit_writes_change_requests\":2,\"approve_50_ms\":670,\"member_get_ms\":100,\"export_all_ms\":223,\"dashboard_ms\":98,\"dues_list_ms\":108,\"total_cells\":190403}"
+        }
+      ],
+      "perf": {
+        "list_page1_ms": 167,
+        "search_no_accent_ms": 126,
+        "import_check_1000_ms": 171,
+        "import_commit_1000_ms": 244,
+        "import_commit_writes_change_requests": 2,
+        "approve_50_ms": 670,
+        "member_get_ms": 100,
+        "export_all_ms": 223,
+        "dashboard_ms": 98,
+        "dues_list_ms": 108,
+        "total_cells": 190403
+      }
+    },
+    {
+      "name": "Bộ đọc CSV phía giao diện: BOM, dấu ngoặc kép, xuống dòng trong ô, dấu ; và số 0 đầu",
+      "ok": true,
+      "ms": 1,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Tìm thấy bộ đọc CSV trong App.html"
+        },
+        {
+          "ok": true,
+          "msg": "Đọc đúng ô có ngoặc kép và xuống dòng"
+        },
+        {
+          "ok": true,
+          "msg": "Bỏ BOM ở đầu tệp"
+        },
+        {
+          "ok": true,
+          "msg": "Tự nhận dấu phân cách ; (Excel tiếng Việt)"
+        }
+      ]
+    },
+    {
+      "name": "Tệp mẫu trong samples/ và bản gộp dist/MaNguon.gs hoạt động",
+      "ok": true,
+      "ms": 105,
+      "checks": [
+        {
+          "ok": true,
+          "msg": "Bản gộp dist/MaNguon.gs nạp được và setupSystem chạy"
+        },
+        {
+          "ok": true,
+          "msg": "du-lieu-thu-demo.csv: 60/60 dòng hợp lệ"
+        },
+        {
+          "ok": true,
+          "msg": "du-lieu-thu-co-loi.csv: lỗi đúng các dòng 3,4,5,6,7,9 — thực tế 3,4,5,6,7,9"
+        },
+        {
+          "ok": true,
+          "msg": "Dòng [MẪU] trong tệp mẫu không vô tình nhập được (mã đơn vị mẫu)"
+        },
+        {
+          "ok": true,
+          "msg": "Sau duyệt: mã, giấy tờ, điện thoại giữ số 0 đầu"
+        }
+      ]
+    }
+  ]
+}

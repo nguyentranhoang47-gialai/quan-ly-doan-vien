@@ -1,0 +1,181 @@
+{
+  "ranAt": "2026-10-23T13:35:54.670Z",
+  "browser": "Chromium (Playwright)",
+  "results": [
+    {
+      "name": "Báo lỗi email sai định dạng kèm ví dụ",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "OTP sai: hiển thị lỗi và hướng dẫn gửi lại mã",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Tổng quan trên điện thoại không bị tràn ngang",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Không lưu token trong localStorage (chỉ sessionStorage, mất khi đóng thẻ)",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Menu cán bộ không có mục Quản trị",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Danh sách đoàn viên trên điện thoại hiển thị dạng thẻ, không tràn ngang",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Phân trang phía máy chủ (20 dòng/trang)",
+      "ok": true,
+      "note": "Trang 1/2 — 27 dòng‹ TrướcSau ›"
+    },
+    {
+      "name": "Tìm kiếm tên không dấu trên giao diện",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Biểu mẫu chia nhóm Cơ bản / Liên hệ / Công đoàn + Thông tin bổ sung thu gọn",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Bỏ trống họ tên: báo lỗi ngay tại ô",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Ô ngày tự định dạng dd/mm/yyyy khi gõ số",
+      "ok": true,
+      "note": "01/02/1995"
+    },
+    {
+      "name": "Thông báo thành công sau khi gửi duyệt",
+      "ok": true,
+      "note": "Đã gửi yêu cầu chờ duyệt. Dữ liệu chính thức chỉ thay đổi sau khi được duyệt."
+    },
+    {
+      "name": "Bấm gửi lặp chỉ tạo một yêu cầu",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Ngày nhập ở trình duyệt múi giờ khác vẫn lưu đúng 1995-02-01",
+      "ok": true,
+      "note": "1995-02-01"
+    },
+    {
+      "name": "Số điện thoại/giấy tờ giữ số 0 đầu khi gửi từ giao diện",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Dữ liệu chứa HTML/script hiển thị dạng chữ, không thực thi (chống XSS)",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Xem trước nhập CSV: báo lỗi đúng dòng 3",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Nhập CSV qua giao diện tạo yêu cầu chờ duyệt, giữ số 0 đầu",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Không có lỗi JavaScript trên trang (điện thoại)",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Trả lại không ghi lý do bị chặn ở giao diện",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Trả lại kèm lý do thành công",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Duyệt từ giao diện cập nhật hồ sơ chính thức",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Màn hình duyệt hiển thị giá trị cũ và mới",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Không có lỗi JavaScript trên trang (máy tính)",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Ghi nhận đoàn phí hàng loạt từ giao diện (số nguyên VND)",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Trang đoàn phí trên điện thoại không tràn ngang",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Tải tệp CSV báo cáo (UTF-8 có BOM)",
+      "ok": true,
+      "note": "thong-ke-theo-don-vi-2026-10-23.csv"
+    },
+    {
+      "name": "Trang quản trị trên điện thoại không tràn ngang",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Khóa tài khoản từ giao diện quản trị",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Không có lỗi JavaScript trên trang (quản trị)",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Người xem không có nút thêm đoàn viên",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "Phiên bị thu hồi: giao diện tự quay về đăng nhập kèm thông báo",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "GitHub Pages chưa cấu hình: nút bị vô hiệu và có hướng dẫn",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "GitHub Pages dưới /ten-repository/: tải đủ CSS/JS bằng đường dẫn tương đối, nút mở đúng Web App",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "name": "GitHub Pages từ chối địa chỉ không phải Web App của Google",
+      "ok": true,
+      "note": ""
+    }
+  ]
+}

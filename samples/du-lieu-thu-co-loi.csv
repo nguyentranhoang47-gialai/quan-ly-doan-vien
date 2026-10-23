@@ -1,0 +1,9 @@
+﻿Mã đoàn viên,Họ và tên,Ngày sinh,Giới tính,Loại giấy tờ,Số giấy tờ,Số điện thoại,Email,Địa chỉ,Mã đơn vị,Ngày vào công đoàn,Chức vụ công đoàn,Tình trạng sinh hoạt,Ghi chú
+0DEMO1,[DEMO] Dòng Hợp Lệ,01/01/1990,Nam,CCCD,012345678999,0911222333,,,DEMO-A1,,,Đang sinh hoạt,Dòng 2: hợp lệ
+0DEMO2,,01/01/1990,,,,,,,DEMO-A1,,,,Dòng 3: thiếu họ tên
+0DEMO3,[DEMO] Sai Ngày,31/02/1990,,,,,,,DEMO-A1,,,,Dòng 4: ngày không tồn tại
+0DEMO4,[DEMO] Sai CCCD,,,CCCD,12345,,,,DEMO-A1,,,,Dòng 5: CCCD không đủ 12 số
+0DEMO5,[DEMO] Sai Đơn Vị,,,,,,,,KHONG-CO,,,,Dòng 6: mã đơn vị không tồn tại
+0DEMO1,[DEMO] Trùng Mã,,,,,,,,DEMO-A1,,,,Dòng 7: trùng mã với dòng 2
+0DEMO7,[DEMO] Công Thức,,,,,+84912000999,,,DEMO-A1,,,,"=HYPERLINK(""http://vi-du"",""bấm"") — dòng 8 hợp lệ, ghi chú phải lưu dạng chữ"
+0DEMO8,[DEMO] Sai Điện Thoại,,,,,12345,,,DEMO-A1,,,,Dòng 9: điện thoại sai
