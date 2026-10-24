@@ -1,206 +1,23 @@
-<style>
-  /* Phong cách giao diện kiểu Odoo 12 / MuK backend: thanh trên tối, thanh bên lớn có biểu tượng,
-     dải điều khiển (breadcrumb + nút + tìm kiếm), danh sách gọn, biểu mẫu dạng "tờ". */
-  :root {
-    --brand: #243742; --brand-2: #2e4756; --brand-ink: #ffffff;
-    --primary: #5d8da8; --primary-dark: #4a7690; --primary-soft: #e8f0f5;
-    --bg: #f0eeee; --panel: #ffffff; --ink: #4c4c4c; --ink-strong: #212529; --muted: #8f8f8f; --line: #dee2e6;
-    --ok: #28a745; --ok-soft: #e2f4e6; --warn: #b07c00; --warn-soft: #fff4d6;
-    --danger: #dc3545; --danger-soft: #fbe5e7; --focus: #5d8da8;
-    --radius: 3px; --shadow: 0 1px 3px rgba(0, 0, 0, .12);
-    --nav-h: 46px; --side-w: 210px;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--bg); color: var(--ink);
-    font: 14px/1.5 Roboto, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", sans-serif; }
-  button, input, select, textarea { font: inherit; color: inherit; }
-  a { color: var(--primary); }
-  :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-  .boot { padding: 48px 16px; text-align: center; color: var(--muted); }
-  svg.ic { width: 20px; height: 20px; fill: currentColor; flex: none; }
-
-  /* ---------- Thanh điều hướng trên ---------- */
-  .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; height: var(--nav-h);
-    background: var(--brand); color: var(--brand-ink); padding: 0 12px 0 0; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
-  .topbar .brand { display: flex; align-items: center; gap: 10px; width: var(--side-w); height: 100%; padding: 0 14px;
-    background: rgba(0,0,0,.18); font-weight: 500; font-size: 14px; min-width: 0; }
-  .topbar .brand .logo { width: 28px; height: 28px; border-radius: 50%; background: #fff; color: var(--brand); display: grid;
-    place-items: center; font-weight: 800; font-size: 12px; flex: none; }
-  .topbar .brand span.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .topbar .spacer { flex: 1; }
-  .topbar .who { display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 1.2; text-align: right; }
-  .topbar .who .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); display: grid; place-items: center;
-    font-weight: 700; font-size: 12px; }
-  .topbar .who .role { font-size: 11px; opacity: .75; }
-  .topbar button { background: transparent; border: 0; color: #fff; opacity: .85; padding: 6px 10px; cursor: pointer;
-    border-radius: 2px; white-space: nowrap; }
-  .topbar button:hover { background: rgba(255,255,255,.12); opacity: 1; }
-
-  /* ---------- Bố cục + thanh bên ---------- */
-  .layout { display: flex; min-height: calc(100vh - var(--nav-h)); }
-  nav.menu { width: var(--side-w); flex: none; background: var(--brand-2); color: #dfe6ea; padding: 6px 0;
-    position: sticky; top: var(--nav-h); height: calc(100vh - var(--nav-h)); overflow-y: auto; }
-  nav.menu button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: 0;
-    border-left: 3px solid transparent; padding: 10px 14px 10px 13px; cursor: pointer; font-size: 14px; color: inherit; }
-  nav.menu button .lbl { flex: 1; }
-  nav.menu button:hover { background: rgba(255,255,255,.07); color: #fff; }
-  nav.menu button[aria-current="page"] { background: rgba(0,0,0,.22); border-left-color: var(--primary); color: #fff; font-weight: 500; }
-  .badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 9px; background: var(--primary); color: #fff;
-    font-size: 11px; font-weight: 700; text-align: center; line-height: 18px; }
-  main { flex: 1; min-width: 0; padding: 0 0 24px; }
-  main > *:not(h1):not(.toolbar):not(.tabs) { margin-left: 16px; margin-right: 16px; }
-
-  /* ---------- Dải điều khiển (control panel) ---------- */
-  main > h1 { margin: 0 0 12px; padding: 12px 16px 10px; background: var(--panel); border-bottom: 1px solid var(--line);
-    font-size: 18px; font-weight: 400; color: var(--ink-strong); }
-  main > h1::before { content: attr(data-crumb); color: var(--primary); }
-  main > .toolbar { margin: -12px 0 12px; padding: 8px 16px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
-  main > .tabs { margin: -12px 0 12px; padding: 0 16px; background: var(--panel); }
-  h2 { font-size: 15px; font-weight: 500; margin: 0 0 10px; color: var(--ink-strong); }
-  h3 { font-size: 13px; font-weight: 700; margin: 16px 0 8px; color: var(--ink-strong); text-transform: uppercase; letter-spacing: .3px;
-    border-bottom: 1px solid var(--line); padding-bottom: 4px; }
-
-  /* ---------- Thành phần ---------- */
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; margin-bottom: 14px; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 14px; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--primary); border-radius: var(--radius);
-    padding: 10px 14px; box-shadow: var(--shadow); }
-  .stat .num { font-size: 24px; font-weight: 300; line-height: 1.2; color: var(--ink-strong); }
-  .stat .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .2px; }
-  .stat.clickable { cursor: pointer; } .stat.clickable:hover { background: var(--primary-soft); }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 5px 12px;
-    border-radius: var(--radius); border: 1px solid #ccc; background: #fff; cursor: pointer; font-weight: 400; text-decoration: none;
-    color: var(--ink-strong); white-space: nowrap; }
-  .btn:hover { background: #f2f2f2; }
-  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-  .btn.primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
-  .btn.ok { background: var(--primary); color: #fff; border-color: var(--primary); }
-  .btn.ok:hover { background: var(--primary-dark); }
-  .btn.danger { background: #fff; color: var(--danger); border-color: #e4a1a8; }
-  .btn.danger:hover { background: var(--danger-soft); }
-  .btn.big { min-height: 40px; font-size: 14px; padding: 8px 18px; }
-  .btn.small { min-height: 26px; padding: 2px 8px; font-size: 12px; }
-  .btn[disabled] { opacity: .6; cursor: progress; }
-  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
-  .row.end { justify-content: flex-end; }
-  .spacer { flex: 1; }
-  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-bottom: 10px; }
-  .toolbar .field { margin: 0; }
-  .toolbar .field label { font-size: 11px; color: var(--muted); font-weight: 400; text-transform: uppercase; }
-  .field { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; min-width: 0; }
-  .field label { font-weight: 700; font-size: 13px; color: var(--ink-strong); }
-  .field .req { color: var(--danger); }
-  .field input, .field select, .field textarea { min-height: 32px; padding: 4px 6px; border: 0; border-bottom: 1px solid #b9b9b9;
-    border-radius: 0; background: transparent; width: 100%; }
-  .toolbar .field input, .toolbar .field select { border: 1px solid #ccc; border-radius: var(--radius); background: #fff; }
-  .field input:focus, .field select:focus, .field textarea:focus { outline: 0; border-bottom: 2px solid var(--primary); }
-  .field textarea { min-height: 70px; resize: vertical; border: 1px solid #ccc; border-radius: var(--radius); }
-  .field input[readonly] { border-bottom-color: transparent; }
-  .field.invalid input, .field.invalid select, .field.invalid textarea { border-color: var(--danger); background: var(--danger-soft); }
-  .field .err { color: var(--danger); font-size: 12px; }
-  .field .hint { color: var(--muted); font-size: 12px; }
-  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
-  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px; }
-  fieldset { border: 0; border-top: 1px solid var(--line); padding: 8px 0 0; margin: 0 0 10px; }
-  legend { font-weight: 700; padding: 0 8px 0 0; color: var(--ink-strong); text-transform: uppercase; font-size: 12px; letter-spacing: .3px; }
-  details.more { border-top: 1px solid var(--line); padding: 6px 0; margin-bottom: 10px; }
-  details.more summary { cursor: pointer; font-weight: 700; padding: 4px 0; color: var(--primary); text-transform: uppercase; font-size: 12px; }
-  .alert { border-radius: var(--radius); padding: 8px 12px; margin-bottom: 10px; border: 1px solid; }
-  .alert.error { background: var(--danger-soft); border-color: #f1b0b7; color: #721c24; }
-  .alert.warn { background: var(--warn-soft); border-color: #f2d58a; color: #6b4b00; }
-  .alert.info { background: #e3f1f7; border-color: #b8dbe8; color: #0c5460; }
-  .alert.ok { background: var(--ok-soft); border-color: #b7dfc0; color: #155724; }
-  .tag { display: inline-block; padding: 0 8px; border-radius: 10px; font-size: 12px; background: #e9ecef; color: #495057; white-space: nowrap; line-height: 20px; }
-  .tag.ok { background: var(--ok-soft); color: #1e7e34; } .tag.warn { background: var(--warn-soft); color: var(--warn); }
-  .tag.danger { background: var(--danger-soft); color: #bd2130; } .tag.info { background: var(--primary-soft); color: var(--primary-dark); }
-  .muted { color: var(--muted); }
-  .tabs { display: flex; gap: 0; flex-wrap: wrap; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
-  .tabs button { background: none; border: 1px solid transparent; border-bottom: 0; padding: 8px 14px; cursor: pointer; color: var(--ink); margin-bottom: -1px; }
-  .tabs button[aria-selected="true"] { color: var(--ink-strong); background: var(--panel); border-color: var(--line); border-top: 2px solid var(--primary); font-weight: 500; }
-
-  /* ---------- Danh sách (list view) ---------- */
-  table.data { width: 100%; border-collapse: collapse; background: var(--panel); }
-  table.data th, table.data td { padding: 6px 8px; border-bottom: 1px solid #ececec; text-align: left; vertical-align: middle; }
-  table.data th { background: #fff; font-weight: 700; color: var(--ink-strong); white-space: nowrap; border-bottom: 2px solid var(--line); }
-  table.data tbody tr:nth-child(even) td { background: #fafafa; }
-  table.data tbody tr.clickable { cursor: pointer; } table.data tbody tr.clickable:hover td { background: #eef4f7; }
-  table.data td.num, table.data th.num { text-align: right; white-space: nowrap; }
-  table.data tr.changed td { background: #fff8e1 !important; }
-  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 10px; background: var(--panel); }
-  .pager { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; color: var(--muted); }
-  .empty { padding: 36px; text-align: center; color: var(--muted); font-size: 14px; }
-
-  /* ---------- Thanh trạng thái các bước (statusbar) ---------- */
-  .statusbar { display: flex; justify-content: flex-end; flex-wrap: wrap; margin: -16px -18px 14px; padding: 6px 18px;
-    border-bottom: 1px solid var(--line); background: #fff; }
-  .statusbar span { position: relative; padding: 4px 14px 4px 18px; background: #f2f2f2; color: var(--muted); font-size: 12px;
-    margin-left: 2px; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%); }
-  .statusbar span:first-child { clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%); padding-left: 12px; }
-  .statusbar span.on { background: var(--primary); color: #fff; font-weight: 500; }
-
-  /* ---------- Hộp thoại (dạng tờ biểu mẫu) ---------- */
-  .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 50; display: flex; align-items: flex-start; justify-content: center;
-    padding: 30px 12px; overflow-y: auto; }
-  .dialog { background: #fff; border-radius: var(--radius); width: 100%; max-width: 780px; box-shadow: 0 6px 24px rgba(0,0,0,.3); }
-  .dialog.wide { max-width: 1040px; }
-  .dialog header { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--line); }
-  .dialog header h2 { margin: 0; flex: 1; font-size: 16px; font-weight: 400; }
-  .dialog .body { padding: 16px 18px; }
-  .dialog .msgbox { padding: 0 18px; } .dialog .msgbox .alert { margin: 12px 0 0; }
-  .dialog footer { display: flex; gap: 6px; justify-content: flex-start; flex-direction: row-reverse; flex-wrap: wrap; padding: 10px 18px;
-    border-top: 1px solid var(--line); }
-  .close { background: none; border: 0; font-size: 22px; line-height: 1; cursor: pointer; padding: 2px 6px; color: var(--muted); }
-  .kv { display: grid; grid-template-columns: 180px 1fr; gap: 4px 14px; margin: 0; }
-  .kv dt { font-weight: 700; color: var(--ink-strong); } .kv dd { margin: 0; word-break: break-word; white-space: pre-wrap; }
-  #toast { position: fixed; right: 16px; top: calc(var(--nav-h) + 10px); z-index: 100; max-width: min(380px, 92vw); }
-  #toast .msg { background: #fff; color: var(--ink-strong); padding: 10px 14px; border-radius: var(--radius); border-left: 4px solid var(--ok);
-    box-shadow: 0 4px 14px rgba(0,0,0,.2); margin-bottom: 8px; }
-  #toast .msg.error { border-left-color: var(--danger); }
-  #toast .msg a { color: var(--primary) !important; }
-  .spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading { padding: 24px; text-align: center; color: var(--muted); }
-  .diff-old { color: #a71d2a; text-decoration: line-through; }
-  .diff-new { color: #1e7e34; font-weight: 700; }
-  .tree-indent { display: inline-block; }
-
-  /* ---------- Đăng nhập kiểu Odoo ---------- */
-  .login { max-width: 360px; margin: 60px auto; }
-  .login .card { padding: 28px 26px; border-radius: 4px; }
-  .login .logo-big { width: 72px; height: 72px; margin: 0 auto 12px; border-radius: 50%; background: var(--brand); color: #fff; display: grid;
-    place-items: center; font-size: 24px; font-weight: 800; }
-  .login h1 { font-size: 16px; font-weight: 500; text-align: center; margin: 0 0 18px; color: var(--ink-strong); }
-  .login .field input { border: 1px solid #ccc; border-radius: var(--radius); padding: 6px 10px; min-height: 38px; }
-  .otp-input { font-size: 22px !important; letter-spacing: 8px; text-align: center; }
-
-  @media (max-width: 860px) {
-    :root { --side-w: auto; }
-    .layout { flex-direction: column; }
-    .topbar .brand { width: auto; flex: 1; background: none; }
-    .topbar .spacer { display: none; }
-    .topbar .who .txt { display: none; }
-    nav.menu { width: auto; height: auto; display: flex; overflow-x: auto; padding: 0; position: sticky; top: var(--nav-h); z-index: 20; }
-    nav.menu button { width: auto; white-space: nowrap; border-left: 0; border-bottom: 3px solid transparent; padding: 9px 12px; gap: 6px; font-size: 13px; }
-    nav.menu button[aria-current="page"] { border-bottom-color: var(--primary); }
-    nav.menu button svg.ic { width: 18px; height: 18px; }
-    main > *:not(h1):not(.toolbar):not(.tabs) { margin-left: 10px; margin-right: 10px; }
-    main > h1 { padding: 10px 12px; font-size: 16px; }
-    main > .toolbar, main > .tabs { padding-left: 12px; padding-right: 12px; }
-    .grid2, .grid3 { grid-template-columns: 1fr; }
-    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .stat .num { font-size: 20px; }
-    .kv { grid-template-columns: 1fr; } .kv dt { margin-top: 6px; }
-    table.data.responsive thead { display: none; }
-    table.data.responsive, table.data.responsive tbody, table.data.responsive tr, table.data.responsive td { display: block; width: 100%; }
-    table.data.responsive tr { border-bottom: 1px solid var(--line); padding: 6px 2px; }
-    table.data.responsive tbody tr:nth-child(even) td { background: transparent; }
-    table.data.responsive td { border: 0; padding: 2px 8px; text-align: left !important; }
-    table.data.responsive td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-size: 12px; }
-    table.data.responsive td.title-cell { font-weight: 700; font-size: 14px; color: var(--ink-strong); }
-    table.data.responsive td.title-cell::before { content: none; }
-    .dialog footer .btn, .toolbar .btn { flex: 1 1 auto; }
-    .toolbar .field { flex: 1 1 100%; }
-    .statusbar { justify-content: flex-start; }
-    #toast { left: 10px; right: 10px; max-width: none; }
-  }
-</style>
+:root { --brand: #243742; --brand-2: #2e4756; --primary: #5d8da8; --primary-dark: #4a7690; --ink: #4c4c4c; --bg: #f0eeee; --line: #dee2e6; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 Roboto, "Segoe UI", Arial, "Noto Sans", sans-serif; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+.top { background: var(--brand); color: #fff; height: 52px; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.top .wrap { display: flex; align-items: center; gap: 10px; width: 100%; }
+.logo { width: 32px; height: 32px; border-radius: 50%; background: #fff; color: var(--brand); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+.org { font-weight: 500; font-size: 15px; }
+.sub { opacity: .75; font-size: 12px; }
+.hero { max-width: 420px; margin: 64px auto; background: #fff; border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  padding: 32px 28px; text-align: center; }
+.hero::before { content: "CĐ"; display: grid; place-items: center; width: 76px; height: 76px; margin: 0 auto 16px; border-radius: 50%;
+  background: var(--brand); color: #fff; font-size: 26px; font-weight: 800; }
+.hero h1 { font-size: 19px; font-weight: 500; color: #212529; margin: 0 0 20px; }
+.btn-open { display: block; background: var(--primary); color: #fff; text-decoration: none; font-weight: 500; font-size: 16px; padding: 12px 18px; border-radius: 3px; }
+.btn-open:hover { background: var(--primary-dark); }
+.btn-open:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.btn-open.disabled { background: #a9b6bf; cursor: not-allowed; }
+.warn { background: #fff4d6; border: 1px solid #f2d58a; color: #6b4b00; padding: 10px 12px; border-radius: 3px; text-align: left; font-size: 14px; margin-top: 14px; }
+code { background: #eef1f5; padding: 1px 5px; border-radius: 3px; font-size: .9em; }
+@media (max-width: 600px) { .hero { margin: 32px 0; } }
+body.embed { margin: 0; overflow: hidden; }
+body.embed iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
