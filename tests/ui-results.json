@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-10-23T13:35:54.670Z",
+  "ranAt": "2026-10-24T14:02:56.427Z",
   "browser": "Chromium (Playwright)",
   "results": [
     {
@@ -135,7 +135,7 @@
     {
       "name": "Tải tệp CSV báo cáo (UTF-8 có BOM)",
       "ok": true,
-      "note": "thong-ke-theo-don-vi-2026-10-23.csv"
+      "note": "thong-ke-theo-don-vi-2026-10-24.csv"
     },
     {
       "name": "Trang quản trị trên điện thoại không tràn ngang",

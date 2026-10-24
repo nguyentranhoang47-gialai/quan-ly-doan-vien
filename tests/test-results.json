@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-10-23T13:35:42.669Z",
+  "ranAt": "2026-10-24T14:01:15.019Z",
   "node": "v22.22.0",
   "total": 21,
   "passed": 21,
@@ -7,7 +7,7 @@
     {
       "name": "Thiết lập: setupSystem tạo đủ sheet, chạy lại không mất dữ liệu, chặn khi không phải chủ sở hữu",
       "ok": true,
-      "ms": 46,
+      "ms": 54,
       "checks": [
         {
           "ok": true,
@@ -114,7 +114,7 @@
     {
       "name": "Đăng nhập: email chưa được cấp quyền không đăng nhập được, thông báo không lộ email",
       "ok": true,
-      "ms": 8,
+      "ms": 9,
       "checks": [
         {
           "ok": true,
@@ -141,7 +141,7 @@
     {
       "name": "Đăng nhập: OTP sai, hết hạn, dùng lại, quá số lần thử đều bị từ chối",
       "ok": true,
-      "ms": 21,
+      "ms": 23,
       "checks": [
         {
           "ok": true,
@@ -180,7 +180,7 @@
     {
       "name": "Đăng nhập: giới hạn tần suất gửi mã theo email và toàn hệ thống",
       "ok": true,
-      "ms": 60,
+      "ms": 78,
       "checks": [
         {
           "ok": true,
@@ -203,7 +203,7 @@
     {
       "name": "Phiên: khóa tài khoản / thu hồi quyền có tác dụng ngay với phiên đang dùng; đăng xuất; token giả",
       "ok": true,
-      "ms": 88,
+      "ms": 85,
       "checks": [
         {
           "ok": true,
@@ -250,7 +250,7 @@
     {
       "name": "Phân quyền: đơn vị A không đọc/sửa được dữ liệu đơn vị B khi đổi ID",
       "ok": true,
-      "ms": 98,
+      "ms": 96,
       "checks": [
         {
           "ok": true,
@@ -329,7 +329,7 @@
     {
       "name": "Người xem: không ghi được dữ liệu, trường nhạy cảm bị che",
       "ok": true,
-      "ms": 83,
+      "ms": 79,
       "checks": [
         {
           "ok": true,
@@ -372,7 +372,7 @@
     {
       "name": "Phê duyệt: chưa duyệt thì dữ liệu chính thức không đổi; không duyệt hai lần; không tự duyệt",
       "ok": true,
-      "ms": 95,
+      "ms": 107,
       "checks": [
         {
           "ok": true,
@@ -447,7 +447,7 @@
     {
       "name": "Xung đột: hai người cùng sửa một hồ sơ nhận cảnh báo, không ghi đè âm thầm",
       "ok": true,
-      "ms": 49,
+      "ms": 73,
       "checks": [
         {
           "ok": true,
@@ -466,7 +466,7 @@
     {
       "name": "Chống lặp: gửi lại cùng request_id không tạo bản ghi trùng",
       "ok": true,
-      "ms": 55,
+      "ms": 85,
       "checks": [
         {
           "ok": true,
@@ -509,7 +509,7 @@
     {
       "name": "Chuyển sinh hoạt: giữ mã, giữ lịch sử, đổi quyền xem theo đơn vị mới, chặn trường hợp sai",
       "ok": true,
-      "ms": 69,
+      "ms": 101,
       "checks": [
         {
           "ok": true,
@@ -584,7 +584,7 @@
     {
       "name": "Phục hồi: lỗi giữa chừng được phát hiện và phục hồi không tạo trùng",
       "ok": true,
-      "ms": 63,
+      "ms": 89,
       "checks": [
         {
           "ok": true,
@@ -639,7 +639,7 @@
     {
       "name": "Nhập CSV: giữ số 0 đầu, báo lỗi đúng dòng, kiểm tra lại phía máy chủ, theo quy trình duyệt",
       "ok": true,
-      "ms": 52,
+      "ms": 81,
       "checks": [
         {
           "ok": true,
@@ -702,7 +702,7 @@
     {
       "name": "Dữ liệu HTML/ký tự đặc biệt không gây thực thi phía máy chủ; ngày không lệch múi giờ",
       "ok": true,
-      "ms": 55,
+      "ms": 82,
       "checks": [
         {
           "ok": true,
@@ -757,7 +757,7 @@
     {
       "name": "Đoàn phí: chống ghi trùng, điều chỉnh có lý do + lịch sử, thống kê đúng, phân quyền ghi",
       "ok": true,
-      "ms": 60,
+      "ms": 84,
       "checks": [
         {
           "ok": true,
@@ -820,7 +820,7 @@
     {
       "name": "Báo cáo và xuất dữ liệu đúng phạm vi quyền",
       "ok": true,
-      "ms": 45,
+      "ms": 54,
       "checks": [
         {
           "ok": true,
@@ -851,7 +851,7 @@
     {
       "name": "Quản trị: cây đơn vị chống vòng lặp, không ngừng đơn vị còn đoàn viên, luôn còn quản trị",
       "ok": true,
-      "ms": 52,
+      "ms": 53,
       "checks": [
         {
           "ok": true,
@@ -886,7 +886,7 @@
     {
       "name": "Sao lưu và khôi phục trên dữ liệu thử",
       "ok": true,
-      "ms": 72,
+      "ms": 75,
       "checks": [
         {
           "ok": true,
@@ -933,7 +933,7 @@
     {
       "name": "Hiệu năng giả lập: 5.000 hồ sơ — đo thời gian xử lý logic và số lần gọi Sheets",
       "ok": true,
-      "ms": 2228,
+      "ms": 2156,
       "checks": [
         {
           "ok": true,
@@ -953,20 +953,20 @@
         },
         {
           "ok": true,
-          "msg": "Số liệu: {\"list_page1_ms\":167,\"search_no_accent_ms\":126,\"import_check_1000_ms\":171,\"import_commit_1000_ms\":244,\"import_commit_writes_change_requests\":2,\"approve_50_ms\":670,\"member_get_ms\":100,\"export_all_ms\":223,\"dashboard_ms\":98,\"dues_list_ms\":108,\"total_cells\":190403}"
+          "msg": "Số liệu: {\"list_page1_ms\":102,\"search_no_accent_ms\":85,\"import_check_1000_ms\":176,\"import_commit_1000_ms\":290,\"import_commit_writes_change_requests\":2,\"approve_50_ms\":621,\"member_get_ms\":168,\"export_all_ms\":243,\"dashboard_ms\":80,\"dues_list_ms\":93,\"total_cells\":190403}"
         }
       ],
       "perf": {
-        "list_page1_ms": 167,
-        "search_no_accent_ms": 126,
-        "import_check_1000_ms": 171,
-        "import_commit_1000_ms": 244,
+        "list_page1_ms": 102,
+        "search_no_accent_ms": 85,
+        "import_check_1000_ms": 176,
+        "import_commit_1000_ms": 290,
         "import_commit_writes_change_requests": 2,
-        "approve_50_ms": 670,
-        "member_get_ms": 100,
-        "export_all_ms": 223,
-        "dashboard_ms": 98,
-        "dues_list_ms": 108,
+        "approve_50_ms": 621,
+        "member_get_ms": 168,
+        "export_all_ms": 243,
+        "dashboard_ms": 80,
+        "dues_list_ms": 93,
         "total_cells": 190403
       }
     },
@@ -996,7 +996,7 @@
     {
       "name": "Tệp mẫu trong samples/ và bản gộp dist/MaNguon.gs hoạt động",
       "ok": true,
-      "ms": 105,
+      "ms": 101,
       "checks": [
         {
           "ok": true,

@@ -48,6 +48,12 @@ function todayVN() {
 function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim(); }
 const EVENT_LABELS = { JOIN: 'Vào công đoàn / thêm hồ sơ', TRANSFER_OUT: 'Chuyển đi', TRANSFER_IN: 'Chuyển đến', ARCHIVE: 'Lưu trữ hồ sơ', RESTORE: 'Khôi phục hồ sơ' };
 const ACTION_LABELS = { SUBMIT: 'Gửi duyệt', SAVE_DRAFT: 'Lưu nháp', APPROVE: 'Duyệt', SELF_APPROVE: 'Quản trị tự duyệt', RETURN: 'Trả lại', CANCEL: 'Hủy', CREATE: 'Lập yêu cầu', CONFIRM: 'Xác nhận', REJECT: 'Từ chối' };
+/** Thanh trạng thái các bước kiểu Odoo (bước hiện tại tô màu). */
+function statusBar(steps, current, labels) {
+  return h('div', { class: 'statusbar', role: 'list', 'aria-label': 'Trạng thái' }, steps.map(function (k) {
+    return h('span', { role: 'listitem', class: k === current ? 'on' : null, 'aria-current': k === current ? 'step' : null, text: labels[k] || k });
+  }));
+}
 function statusTag(status, label) {
   const cls = { APPROVED: 'ok', COMPLETED: 'ok', PENDING: 'warn', RETURNED: 'danger', REJECTED: 'danger', CANCELLED: '', DRAFT: 'info', ACTIVE: 'ok', SUSPENDED: 'warn', LEFT: '', RETIRED: 'info' }[status];
   return h('span', { class: 'tag ' + (cls || ''), text: label || status });
@@ -302,10 +308,10 @@ function renderLogin(message) {
         }).catch(function (err) { msg.appendChild(alertBox('error', errorText(err))); otp.select(); });
       });
     });
-    append(card, [h('h1', { text: 'Nhập mã đăng nhập' }), msg, f2]);
+    append(card, [h('div', { class: 'logo-big', 'aria-hidden': 'true', text: 'CĐ' }), h('h1', { text: 'Nhập mã đăng nhập' }), msg, f2]);
     otp.focus();
   }
-  append(card, [h('h1', { text: 'Đăng nhập phần mềm quản lý đoàn viên' }), msg, step1]);
+  append(card, [h('div', { class: 'logo-big', 'aria-hidden': 'true', text: 'CĐ' }), h('h1', { text: 'Đăng nhập phần mềm quản lý đoàn viên' }), msg, step1]);
   append(box, card);
   box.appendChild(h('p', { class: 'muted', style: 'text-align:center;font-size:14px', text: 'Không cần mật khẩu. Chưa được cấp quyền? Liên hệ quản trị hệ thống của đơn vị.' }));
   app.appendChild(box);
@@ -319,9 +325,29 @@ function sessionExpired(message) {
 
 /* ============================ KHUNG ỨNG DỤNG ============================ */
 const MENU = [
-  ['dashboard', 'Tổng quan'], ['members', 'Đoàn viên'], ['approvals', 'Chờ phê duyệt'], ['transfers', 'Chuyển sinh hoạt'],
-  ['dues', 'Đoàn phí'], ['reports', 'Báo cáo'], ['admin', 'Quản trị']
+  ['dashboard', 'Tổng quan', 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z'],
+  ['members', 'Đoàn viên', 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z'],
+  ['approvals', 'Chờ phê duyệt', 'M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z'],
+  ['transfers', 'Chuyển sinh hoạt', 'M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z'],
+  ['dues', 'Đoàn phí', 'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z'],
+  ['reports', 'Báo cáo', 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z'],
+  ['admin', 'Quản trị', 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z']
 ];
+const MENU_LABEL = {};
+MENU.forEach(function (m) { MENU_LABEL[m[0]] = m[1]; });
+/** Biểu tượng SVG (chỉ dùng đường vẽ cố định trong mã, không dùng dữ liệu người dùng). */
+function icon(d) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('class', 'ic'); svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NS, 'path'); path.setAttribute('d', d);
+  svg.appendChild(path);
+  return svg;
+}
+function initials(name) {
+  const p = String(name || '').trim().split(/\s+/);
+  return ((p.length > 1 ? p[p.length - 2][0] : '') + (p[p.length - 1] || '?')[0]).toUpperCase();
+}
 function startApp() {
   clear($('app')).appendChild(h('div', { class: 'loading' }, h('span', { class: 'spinner' }), ' Đang tải dữ liệu…'));
   return call('me').then(function (me) { S.me = me; renderShell(); go('dashboard'); })
@@ -336,11 +362,14 @@ function renderShell() {
   MENU.forEach(function (m) {
     if (m[0] === 'admin' && !me.isAdmin) return;
     if (m[0] === 'approvals' && !(me.canEdit || me.canApprove)) return;
-    nav.appendChild(h('button', { 'data-view': m[0], onclick: function () { go(m[0]); } }, h('span', { text: m[1] }), h('span', { class: 'badge', hidden: true })));
+    nav.appendChild(h('button', { 'data-view': m[0], onclick: function () { go(m[0]); } }, icon(m[2]), h('span', { class: 'lbl', text: m[1] }), h('span', { class: 'badge', hidden: true })));
   });
   append(clear($('app')), [
-    h('header', { class: 'topbar' }, h('div', { class: 'brand', text: me.orgName || 'Quản lý đoàn viên' }),
-      h('div', { class: 'who' }, h('div', { text: me.user.full_name }), h('div', { class: 'email', style: 'font-size:12px', text: me.isAdmin ? 'Quản trị hệ thống' : me.roles.join(', ') })), logout),
+    h('header', { class: 'topbar' },
+      h('div', { class: 'brand' }, h('span', { class: 'logo', text: 'CĐ' }), h('span', { class: 'name', text: me.orgName || 'Quản lý đoàn viên' })),
+      h('div', { class: 'spacer' }),
+      h('div', { class: 'who' }, h('div', { class: 'txt' }, h('div', { text: me.user.full_name }), h('div', { class: 'role', text: me.isAdmin ? 'Quản trị hệ thống' : me.roles.join(', ') })),
+        h('span', { class: 'avatar', 'aria-hidden': 'true', text: initials(me.user.full_name) })), logout),
     h('div', { class: 'layout' }, nav, h('main', { id: 'main', tabindex: '-1' }))
   ]);
 }
@@ -400,7 +429,7 @@ function table(headers, rows, opts2) {
 function viewDashboard(main) {
   return refreshBadges().then(function (d) {
     clear(main);
-    main.appendChild(h('h1', { text: 'Tổng quan' }));
+    main.appendChild(h('h1', { text: 'Tổng quan', 'data-crumb': 'Công đoàn / ' }));
     (d.warnings || []).forEach(function (w) { main.appendChild(alertBox('warn', w)); });
     function stat(num, lbl, view, arg) {
       return h('div', { class: 'stat' + (view ? ' clickable' : ''), role: view ? 'button' : null, tabindex: view ? '0' : null,
@@ -433,7 +462,7 @@ function viewDashboard(main) {
 const MQ = { q: '', unit_id: '', member_status: '', archived: 'active', page: 1, sort: 'full_name', dir: 'asc' };
 function viewMembers(main) {
   clear(main);
-  main.appendChild(h('h1', { text: 'Đoàn viên' }));
+  main.appendChild(h('h1', { text: 'Đoàn viên', 'data-crumb': 'Công đoàn / ' }));
   const q = h('input', { id: 'm-q', type: 'search', placeholder: 'Tên (gõ không dấu được), mã, điện thoại…', value: MQ.q });
   const unit = h('select', { id: 'm-unit' }); unitOptions(null, 'Tất cả đơn vị được xem').forEach(function (o) { unit.appendChild(h('option', { value: o[0], text: o[1] })); }); unit.value = MQ.unit_id;
   const st = h('select', { id: 'm-st' }); [['', 'Mọi tình trạng']].concat(opts(S.me.memberStatus)).forEach(function (o) { st.appendChild(h('option', { value: o[0], text: o[1] })); }); st.value = MQ.member_status;
@@ -617,7 +646,7 @@ function openReasonRequest(type, m) {
 function viewApprovals(main, tab) {
   tab = tab || (S.me.canApprove ? 'approve' : 'mine');
   clear(main);
-  main.appendChild(h('h1', { text: 'Chờ phê duyệt' }));
+  main.appendChild(h('h1', { text: 'Chờ phê duyệt', 'data-crumb': 'Công đoàn / ' }));
   const tabs = [['approve', 'Chờ tôi duyệt', S.me.canApprove], ['mine', 'Yêu cầu tôi lập', S.me.canEdit || S.me.isAdmin], ['history', 'Lịch sử xử lý', true]];
   main.appendChild(h('div', { class: 'tabs', role: 'tablist' }, tabs.filter(function (t) { return t[2]; }).map(function (t) {
     return h('button', { role: 'tab', 'aria-selected': t[0] === tab ? 'true' : 'false', text: t[1], onclick: function () { go('approvals', t[0]); } });
@@ -677,7 +706,9 @@ function openRequest(changeId) {
     const c = r.request;
     clear(d.body);
     append(d.body, [
-      h('p', null, h('strong', { text: c.summary }), ' ', statusTag(c.status, c.status_label)),
+      statusBar(c.status === 'RETURNED' ? ['DRAFT', 'RETURNED', 'PENDING', 'APPROVED'] : c.status === 'CANCELLED' ? ['DRAFT', 'PENDING', 'CANCELLED'] : ['DRAFT', 'PENDING', 'APPROVED'], c.status,
+        { DRAFT: 'Nháp', PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', RETURNED: 'Trả lại', CANCELLED: 'Đã hủy' }),
+      h('p', { style: 'font-size:20px;margin:0 0 4px;color:#212529' }, h('span', { text: c.summary })),
       h('p', { class: 'muted', text: 'Đơn vị: ' + c.unit_name + ' — Người lập: ' + c.created_by + ' — ' + fmtDT(c.created_at) }),
       r.stale ? alertBox('warn', 'Hồ sơ đã thay đổi sau khi yêu cầu được lập (xung đột phiên bản). Nên trả lại để người lập cập nhật.') : null,
       c.status === 'RETURNED' ? alertBox('error', 'Bị trả lại: ' + (c.decision_note || '')) : null,
@@ -752,7 +783,7 @@ function openTransferForm(m) {
 function viewTransfers(main, tab) {
   tab = tab || 'incoming';
   clear(main);
-  main.appendChild(h('h1', { text: 'Chuyển sinh hoạt' }));
+  main.appendChild(h('h1', { text: 'Chuyển sinh hoạt', 'data-crumb': 'Công đoàn / ' }));
   main.appendChild(alertBox('info', 'Để lập yêu cầu chuyển: vào "Đoàn viên", mở hồ sơ rồi bấm "Chuyển sinh hoạt".'));
   main.appendChild(h('div', { class: 'tabs', role: 'tablist' }, [['incoming', 'Chờ đơn vị tôi xác nhận'], ['outgoing', 'Đơn vị tôi chuyển đi'], ['all', 'Tất cả']].map(function (t) {
     return h('button', { role: 'tab', 'aria-selected': t[0] === tab ? 'true' : 'false', text: t[1], onclick: function () { go('transfers', t[0]); } });
@@ -812,7 +843,7 @@ function periodSelects(idp, y, m) {
 }
 function viewDues(main) {
   clear(main);
-  main.appendChild(h('h1', { text: 'Đoàn phí' }));
+  main.appendChild(h('h1', { text: 'Đoàn phí', 'data-crumb': 'Công đoàn / ' }));
   main.appendChild(alertBox('info', 'Phần mềm chỉ ghi nhận số phải thu và đã thu, không thu tiền trực tuyến. Mức phải thu do người có quyền nhập; hệ thống không tự áp mức theo quy định.'));
   const ps = periodSelects('d', DQ.year, DQ.month);
   const unit = h('select', { id: 'd-unit' }); unitOptions(null, 'Tất cả đơn vị được xem').forEach(function (o) { unit.appendChild(h('option', { value: o[0], text: o[1] })); }); unit.value = DQ.unit_id;
@@ -939,7 +970,7 @@ function openDuesAdjust(x, reload) {
 /* ============================ BÁO CÁO ============================ */
 function viewReports(main) {
   clear(main);
-  main.appendChild(h('h1', { text: 'Báo cáo' }));
+  main.appendChild(h('h1', { text: 'Báo cáo', 'data-crumb': 'Công đoàn / ' }));
   const unit = h('select', { id: 'r-unit' }); unitOptions(null, 'Tất cả đơn vị được xem').forEach(function (o) { unit.appendChild(h('option', { value: o[0], text: o[1] })); });
   const out = h('div');
   function exportBtn(label, payloadFn) {
@@ -1078,7 +1109,7 @@ function viewAdmin(main, tab) {
   tab = tab || 'units';
   return call('admin.overview').then(function (ov) {
     clear(main);
-    main.appendChild(h('h1', { text: 'Quản trị' }));
+    main.appendChild(h('h1', { text: 'Quản trị', 'data-crumb': 'Công đoàn / ' }));
     main.appendChild(h('div', { class: 'tabs', role: 'tablist' }, [['units', 'Đơn vị'], ['users', 'Người dùng & phân quyền'], ['settings', 'Cấu hình'], ['backup', 'Sao lưu'], ['ops', 'Vận hành & nhật ký']].map(function (t) {
       return h('button', { role: 'tab', 'aria-selected': t[0] === tab ? 'true' : 'false', text: t[1], onclick: function () { go('admin', t[0]); } });
     })));

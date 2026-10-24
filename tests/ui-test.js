@@ -289,7 +289,7 @@ function rec(name, ok, note) { results.push({ name, ok: !!ok, note: note || '' }
       const href = await pg.getAttribute('#open-app', 'href');
       const bg = await pg.evaluate(() => getComputedStyle(document.querySelector('.top')).backgroundColor);
       if (cfgUrl.includes('script.google.com')) {
-        rec('GitHub Pages dưới /ten-repository/: tải đủ CSS/JS bằng đường dẫn tương đối, nút mở đúng Web App', missing === 0 && bg === 'rgb(29, 79, 145)' && href === cfgUrl);
+        rec('GitHub Pages dưới /ten-repository/: tải đủ CSS/JS bằng đường dẫn tương đối, nút mở đúng Web App', missing === 0 && bg === 'rgb(36, 55, 66)' && href === cfgUrl);
         await pg.screenshot({ path: path.join(SHOTS, '00-github-pages-dien-thoai.png'), fullPage: true });
       } else if (!cfgUrl) rec('GitHub Pages chưa cấu hình: nút bị vô hiệu và có hướng dẫn', href === null && await pg.isVisible('#config-warning'));
       else rec('GitHub Pages từ chối địa chỉ không phải Web App của Google', href === null);
