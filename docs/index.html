@@ -34,6 +34,17 @@
       var url = String(cfg.webAppUrl || '').trim();
       var link = document.getElementById('open-app');
       var valid = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.\-]+|macros)\/s\/[A-Za-z0-9_\-]+\/exec$/.test(url);
+      if (valid && cfg.embed === true) {
+        document.body.className = 'embed';
+        while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+        var frame = document.createElement('iframe');
+        frame.src = url;
+        frame.title = 'Phần mềm quản lý đoàn viên';
+        frame.setAttribute('allow', 'clipboard-write');
+        document.body.appendChild(frame);
+        if (cfg.orgName) document.title = cfg.orgName + ' — Quản lý đoàn viên';
+        return;
+      }
       if (valid) { link.href = url; }
       else { link.classList.add('disabled'); link.setAttribute('aria-disabled', 'true'); link.removeAttribute('href'); document.getElementById('config-warning').hidden = false; }
       if (cfg.orgName) { document.getElementById('org-name').textContent = cfg.orgName; document.title = cfg.orgName + ' — Quản lý đoàn viên'; }
