@@ -6,7 +6,7 @@
  *   https://script.google.com/macros/s/XXXXXXXX/exec
  */
 window.APP_CONFIG = {
-  webAppUrl: '',
-  orgName: 'Công đoàn',
+  webAppUrl: 'https://script.google.com/macros/s/AKfycbwGqUoSaua2KxLRYxNYdjNXvvZ6DmuLYgrs547-cLgtCoPjPOl_AraVu1_jtkav0JiSyA/exec',
+  orgName: 'Công đoàn Văn phòng đăng ký đất đai',
   guideUrl: ''
 };
